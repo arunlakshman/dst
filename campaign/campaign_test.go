@@ -84,3 +84,25 @@ func TestRunStampsSeedOnFailedResults(t *testing.T) {
 		t.Fatalf("seed stamp: %+v", got.Failed)
 	}
 }
+
+func TestRunSumsCountersAndMergeAndMissing(t *testing.T) {
+	run := func(first uint64) campaign.Summary {
+		return campaign.Run(first, 3, 2, func(seed uint64) campaign.Result {
+			return campaign.Result{
+				OK:       true,
+				Counters: map[string]uint64{"steps": 10},
+				Coverage: map[string]campaign.Coverage{"a": {Kind: "reachable", Checks: 1, Passes: 1}},
+			}
+		})
+	}
+	var total campaign.Summary
+	total.Merge(run(1))
+	total.Merge(run(10))
+	if total.Counters["steps"] != 60 || total.Coverage["a"].Passes != 6 {
+		t.Fatalf("merge: %+v %+v", total.Counters, total.Coverage)
+	}
+	got := campaign.Missing(total.Coverage, []string{"z", "a", "b"})
+	if len(got) != 2 || got[0] != "b" || got[1] != "z" {
+		t.Fatalf("missing: %v", got)
+	}
+}

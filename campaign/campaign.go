@@ -3,6 +3,7 @@ package campaign
 
 import (
 	goruntime "runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -23,6 +24,8 @@ type Result struct {
 	OK        bool
 	Reproduce string
 	Coverage  map[string]Coverage
+	// Counters are named totals of the run (steps, writes, ...). Run sums them.
+	Counters map[string]uint64
 }
 
 // Counts summarizes how many seeds ran and how many failed.
@@ -37,8 +40,37 @@ type Summary struct {
 	Failed   []Result
 	Hash     uint64
 	Coverage map[string]Coverage
+	Counters map[string]uint64
 	Elapsed  time.Duration
 	Counts   Counts
+}
+
+// Merge adds the coverage and counters of o into s, for a total over several
+// campaigns. Hash, Elapsed, Counts and Failed are not touched.
+func (s *Summary) Merge(o Summary) {
+	if s.Coverage == nil {
+		s.Coverage = map[string]Coverage{}
+	}
+	addCoverage(s.Coverage, o.Coverage)
+	if s.Counters == nil {
+		s.Counters = map[string]uint64{}
+	}
+	for k, v := range o.Counters {
+		s.Counters[k] += v
+	}
+}
+
+// Missing returns the sorted names in expected that no seed passed: they have
+// no coverage entry or zero Passes.
+func Missing(cov map[string]Coverage, expected []string) []string {
+	var out []string
+	for _, name := range expected {
+		if cov[name].Passes == 0 {
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // Run executes seeds first, first+1, … for seeds count, using workers goroutines.
@@ -46,7 +78,7 @@ type Summary struct {
 // folded in seed order. Coverage maps are merged by summing Checks and Passes.
 func Run(first uint64, seeds int, workers int, run func(seed uint64) Result) Summary {
 	if seeds <= 0 {
-		return Summary{Coverage: map[string]Coverage{}}
+		return Summary{Coverage: map[string]Coverage{}, Counters: map[string]uint64{}}
 	}
 	if workers <= 0 {
 		workers = goruntime.GOMAXPROCS(0)
@@ -75,12 +107,16 @@ func Run(first uint64, seeds int, workers int, run func(seed uint64) Result) Sum
 
 	out := Summary{
 		Coverage: map[string]Coverage{},
+		Counters: map[string]uint64{},
 		Counts:   Counts{Seeds: seeds},
 	}
 	h := trace.New()
 	for _, r := range results {
 		h.Uint64(r.Hash)
 		addCoverage(out.Coverage, r.Coverage)
+		for k, v := range r.Counters {
+			out.Counters[k] += v
+		}
 		if r.OK {
 			out.Counts.OK++
 			continue
