@@ -1,14 +1,27 @@
-// Package model provides rapid-oriented lockstep helpers without importing
-// a property-testing engine. Callers pass ops from their own generator
-// (for example *rapid.T) or drive a fixed alphabet in a unit test.
+// Package model provides lockstep model/subject checks on top of
+// pgregory.net/rapid. Each product supplies a Model and a System; this
+// package compares observations and runs the paper DirtyReboot checks.
 //
-// Prefer the simplest ops first when shrinking or when choosing an ordered
-// alphabet. Put reads and no-ops ahead of writes, and crash/reboot ops last,
-// so failures land on short prefixes. The caller supplies that order; this
-// package only checks each step.
+// Prefer simplest ops first when building a generator. SimplestFirst wraps
+// rapid.OneOf so earlier generators shrink first. Put reads and no-ops ahead
+// of writes, and crash/reboot ops last.
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"pgregory.net/rapid"
+)
+
+// Model is the sequential reference. Apply is fault-free.
+type Model[Op, Obs any] interface {
+	Apply(Op) (Obs, error)
+}
+
+// System is the subject under test.
+type System[Op, Obs any] interface {
+	Apply(Op) (Obs, error)
+}
 
 // Step runs a reference model and a subject in lockstep for one op.
 // Equal compares model observation (want) to subject observation (got).
@@ -18,6 +31,15 @@ type Step[Op, Obs any] struct {
 	SubjectApply func(Op) (Obs, error)
 	Equal        func(want, got Obs) error
 	Invariant    func() error
+}
+
+// NewStep builds a Step from a Model, a System, and an observation comparer.
+func NewStep[Op, Obs any](m Model[Op, Obs], sys System[Op, Obs], equal func(want, got Obs) error) Step[Op, Obs] {
+	return Step[Op, Obs]{
+		ModelApply:   m.Apply,
+		SubjectApply: sys.Apply,
+		Equal:        equal,
+	}
 }
 
 // Check applies op to model then subject and compares observations.
@@ -75,6 +97,26 @@ func (s Step[Op, Obs]) CheckAllowFailed(op Op, failed bool) error {
 	return nil
 }
 
+// CheckGen draws ops from gen and locksteps each draw with CheckAllowFailed.
+// failed, when non-nil, reports the paper "has failed" flag for that step.
+func (s Step[Op, Obs]) CheckGen(t *rapid.T, gen *rapid.Generator[Op], failed func() bool) {
+	t.Repeat(map[string]func(*rapid.T){
+		"step": func(rt *rapid.T) {
+			op := gen.Draw(rt, "op")
+			allow := failed != nil && failed()
+			if err := s.CheckAllowFailed(op, allow); err != nil {
+				rt.Fatalf("%v", err)
+			}
+		},
+	})
+}
+
+// SimplestFirst builds a generator that picks among gens. Earlier gens are
+// simpler for shrink: rapid.OneOf shrinks toward lower indices.
+func SimplestFirst[V any](gens ...*rapid.Generator[V]) *rapid.Generator[V] {
+	return rapid.OneOf(gens...)
+}
+
 // Write is one answered key/value pair used by CheckPersistence.
 type Write[K, V any] struct {
 	Key   K
@@ -110,4 +152,18 @@ func CheckForwardProgress[Obs any](modelClean, subjectRestart func() (Obs, error
 		return fmt.Errorf("forward progress: %w", err)
 	}
 	return nil
+}
+
+// DirtyReboot runs the paper crash checks: answered writes remain, then a
+// clean restart matches the model again.
+func DirtyReboot[K, V, Obs any](
+	answered []Write[K, V],
+	present func(K, V) bool,
+	modelClean, subjectRestart func() (Obs, error),
+	equal func(want, got Obs) error,
+) error {
+	if err := CheckPersistence(answered, present); err != nil {
+		return err
+	}
+	return CheckForwardProgress(modelClean, subjectRestart, equal)
 }

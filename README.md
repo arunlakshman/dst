@@ -45,7 +45,7 @@ The runner handles control types first, then tries engines in register order unt
 | `fault` | Maybe / MaybeP / Fault with per-site latch and Quiet |
 | `campaign` | Parallel seed runner. Folds per-seed hashes in seed order and merges coverage. |
 | `mutant` | `Require` / `RequireClean` helpers for planted-bug and false-alarm checks |
-| `model` | Lockstep model/subject `Step`, DirtyReboot persistence helpers (no rapid import) |
+| `model` | Lockstep `Model`/`System` on rapid: `SimplestFirst`, `CheckGen`, `DirtyReboot` |
 | `golden` | Fixed seed→hash asserts plus optional golden file Load/Save |
 
 ## Docs
