@@ -1,6 +1,6 @@
 # dst
 
-Deterministic simulation tools for single-threaded Go tests: a seeded random stream, a virtual-time event heap, an FNV fingerprint, record-and-continue assertions, cooperative fault points, and process/engine contracts on top.
+Deterministic simulation tools for single-threaded Go tests. A product implements `sim.Process` and `eng.Engine`; the runner owns one seeded `rng`, virtual-time `sched`, cooperative `fault` injector, record-and-continue `assert` log, and `trace` fingerprint per run.
 
 Module: `github.com/arunlakshman/dst`
 
@@ -9,6 +9,29 @@ Module: `github.com/arunlakshman/dst`
 ```bash
 go get github.com/arunlakshman/dst@latest
 ```
+
+## Contract packages
+
+Wire these first.
+
+| Package | Role |
+|---|---|
+| `eng` | `Engine` + `Context` (`Deliver`, `Self`). Returns `ErrNotMine` for foreign actions. Does not import `sim`. |
+| `sim` | `Process`, `Runner`, control values (`Send`, `SetTimer`, `CancelTimer`, `Crash`, `Restart`). Owns one `rng`, `sched`, `fault.Injector`, `assert.Log`, and `trace.Hash` per run. |
+
+### How to wire a Process and Engine
+
+1. Implement `sim.Process` (`ID`, `StateHash`, `Step`).
+2. Implement `eng.Engine` (`ID`, `StateHash`, `Handle`, `OnSelf`).
+3. `r := sim.New(sim.Config{Seed: seed})`, then `r.Register(engine)`, `r.Spawn(process)`, `r.Inject(...)`, `r.Run()`.
+
+`Process.Step(cx, inbox any) []any` takes one inbox value and returns outbound values. Those are either control structs in package `sim` or domain values an `eng.Engine` understands. There is no `sim.Event` / `sim.Action` alias.
+
+The runner handles control types first, then tries engines in register order until one does not return `eng.ErrNotMine`.
+
+**Crash / Restart.** `Crash` marks the issuing process crashed; deliveries to it are ignored until `Restart` (or `Spawn`) clears the flag. `Restart{Who, Boot}` clears crash for `Who` and, when `Boot` is non-nil, delivers that inbox at delay 0. Pending timers still fire while crashed; `Step` is a no-op until restart.
+
+`examples/kv` is a happy-path store. `examples/kvchaos` adds write drops (`Fault` + MaybeApplied client retries) and Crash+Restart on some seeds.
 
 ## Mechanism packages
 
@@ -20,70 +43,14 @@ go get github.com/arunlakshman/dst@latest
 | `assert` | Always / Sometimes / Reachable / Unreachable with coverage |
 | `fault` | Maybe / MaybeP / Fault with per-site latch and Quiet |
 
-## Contract packages
+## How to run campaigns
 
-| Package | Role |
-|---|---|
-| `eng` | `Engine` + `Context` (`Deliver`, `Self`). Returns `ErrNotMine` for foreign actions. Does not import `sim`. |
-| `sim` | `Process`, `Runner`, control actions (`Send`, `SetTimer`, `CancelTimer`, `Crash`). Owns one `rng`, `sched`, `fault.Injector`, `assert.Log`, and `trace.Hash` per run. |
+A campaign is a seed loop in an ordinary Go test. Same seed must replay to the same `Result.Hash` / `Calls` / `Steps`. Fail the test on `Run` errors (protocol) or non-empty `Failures` (asserts). Cross-seed hash collisions are normal and not signal.
 
-## How to wire a Process and Engine
-
-1. Implement `sim.Process` (`ID`, `StateHash`, `Step`).
-2. Implement `eng.Engine` (`ID`, `StateHash`, `Handle`, `OnSelf`).
-3. `r := sim.New(sim.Config{Seed: seed})`, then `r.Register(engine)`, `r.Spawn(process)`, `r.Inject(...)`, `r.Run()`.
-
-`Process.Step(cx, inbox any) []any` takes one inbox value and returns outbound values. Those are either control structs in package `sim` (`Send`, `SetTimer`, …) or domain values an `eng.Engine` understands. There is no `sim.Event` / `sim.Action` alias. That naming reads like "simulated action" and fights the real meaning (inbox in, outbound out).
-
-The runner handles control types first, then tries engines in register order until one does not return `eng.ErrNotMine`.
-
-`examples/kv` wires a store engine plus node and client processes. Same seed must yield the same `Result.Hash` and `Calls`.
-
-## Mechanism quickstart
-
-```go
-package main
-
-import (
-	"fmt"
-
-	"github.com/arunlakshman/dst/assert"
-	"github.com/arunlakshman/dst/fault"
-	"github.com/arunlakshman/dst/rng"
-	"github.com/arunlakshman/dst/sched"
-	"github.com/arunlakshman/dst/trace"
-)
-
-func main() {
-	r := rng.New(42)
-	s := sched.New(r)
-	h := trace.New()
-	a := assert.New(func(property, detail string) {
-		fmt.Printf("FAIL %s: %s\n", property, detail)
-	})
-	f := fault.New(r)
-
-	kv := map[string]string{}
-
-	put := func(k, v string) {
-		s.After(sched.TimeNs(r.Between(1, 5)*1_000_000), "put", func() {
-			if f.Fault("kv.write", 0.1) {
-				return
-			}
-			kv[k] = v
-			h.String(k)
-			h.String(v)
-			a.Always(kv[k] == v, "put sticks", assert.Pair{Key: "k", Value: k})
-		})
-	}
-
-	put("a", "1")
-	put("a", "2")
-	for s.Next() {
-	}
-	h.Uint64(r.Calls())
-	fmt.Printf("hash=%016x steps=%d\n", h.Sum(), s.Steps())
-}
+```bash
+go test ./examples/kv -run TestCampaign -count=1
+go test ./examples/kvchaos -run TestCampaign -count=1
+go test ./...
 ```
 
 ## Stay out
@@ -93,7 +60,7 @@ These stay out of this module on purpose:
 - Spec / rapid property engines
 - Closed domain message vocabularies (Kafka, S3, product RPCs)
 - Campaign runners and corpus orchestration
-- Product I/O fakes beyond the tiny KV example
+- Product I/O fakes beyond the tiny KV examples
 - Full network-partition simulators
 
 Wall clocks, product fault policy, and domain IDs belong in the importing project.
