@@ -64,7 +64,7 @@ func (h *eventHeap) pop() *event {
 }
 
 // Scheduler owns the virtual clock and the event queue.
-// Invariant: Mono moves only inside Next when an event is taken.
+// Invariant: Mono moves inside Next/Take when an event is taken, or via Jump.
 // Invariant: same-time events order by seeded tie, then by enqueue seq (total order).
 // Not safe for concurrent use.
 type Scheduler struct {
@@ -87,6 +87,22 @@ func (s *Scheduler) Steps() int { return s.steps }
 // Len is the number of queued events.
 func (s *Scheduler) Len() int { return len(s.queue) }
 
+// Peek reports the soonest event time. ok is false when the queue is empty.
+func (s *Scheduler) Peek() (at TimeNs, ok bool) {
+	if len(s.queue) == 0 {
+		return 0, false
+	}
+	return s.queue[0].at, true
+}
+
+// Jump sets Mono to t when t is greater than Mono. Used by clock.Advance to
+// move time across empty spans without taking an event.
+func (s *Scheduler) Jump(t TimeNs) {
+	if t > s.now {
+		s.now = t
+	}
+}
+
 // After queues run at Mono+delay (delay<0 counts as 0). label is for traces only.
 func (s *Scheduler) After(delay TimeNs, label string, run func()) {
 	if delay < 0 {
@@ -104,12 +120,23 @@ func (s *Scheduler) After(delay TimeNs, label string, run func()) {
 
 // Next pops the soonest event, sets Mono to max(Mono, at), runs it, returns false if empty.
 func (s *Scheduler) Next() bool {
-	if len(s.queue) == 0 {
+	run, ok := s.Take()
+	if !ok {
 		return false
+	}
+	run()
+	return true
+}
+
+// Take pops the soonest event, sets Mono to max(Mono, at), and returns its
+// callback without running it. ok is false when the queue is empty. Callers
+// that hold a lock around the heap use Take so the callback can run unlocked.
+func (s *Scheduler) Take() (run func(), ok bool) {
+	if len(s.queue) == 0 {
+		return nil, false
 	}
 	e := s.queue.pop()
 	s.now = max(s.now, e.at)
 	s.steps++
-	e.run()
-	return true
+	return e.run, true
 }

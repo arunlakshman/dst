@@ -87,3 +87,27 @@ func TestMonoAdvances(t *testing.T) {
 		t.Fatal("queue not empty")
 	}
 }
+
+func TestPeekAndJump(t *testing.T) {
+	s := sched.New(rng.New(5))
+	if _, ok := s.Peek(); ok {
+		t.Fatal("empty Peek want ok=false")
+	}
+	s.After(40, "t", func() {})
+	at, ok := s.Peek()
+	if !ok || at != 40 {
+		t.Fatalf("Peek = %d,%v want 40,true", at, ok)
+	}
+	s.Jump(25)
+	if s.Mono() != 25 {
+		t.Fatalf("Mono = %d want 25", s.Mono())
+	}
+	s.Jump(10)
+	if s.Mono() != 25 {
+		t.Fatalf("Jump backward changed Mono to %d", s.Mono())
+	}
+	s.Next()
+	if s.Mono() != 40 {
+		t.Fatalf("Mono = %d want 40", s.Mono())
+	}
+}
