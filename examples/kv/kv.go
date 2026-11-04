@@ -1,11 +1,11 @@
 package kv
 
 import (
-	"github.com/manifesterio/dst/assert"
-	"github.com/manifesterio/dst/fault"
-	"github.com/manifesterio/dst/rng"
-	"github.com/manifesterio/dst/sched"
-	"github.com/manifesterio/dst/trace"
+	"github.com/arunlakshman/dst/assert"
+	"github.com/arunlakshman/dst/fault"
+	"github.com/arunlakshman/dst/rng"
+	"github.com/arunlakshman/dst/sched"
+	"github.com/arunlakshman/dst/trace"
 )
 
 // Result is the fingerprint of one toy KV run.

@@ -3,7 +3,7 @@ package trace_test
 import (
 	"testing"
 
-	"github.com/manifesterio/dst/trace"
+	"github.com/arunlakshman/dst/trace"
 )
 
 func TestNewOffset(t *testing.T) {

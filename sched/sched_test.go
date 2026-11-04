@@ -3,8 +3,8 @@ package sched_test
 import (
 	"testing"
 
-	"github.com/manifesterio/dst/rng"
-	"github.com/manifesterio/dst/sched"
+	"github.com/arunlakshman/dst/rng"
+	"github.com/arunlakshman/dst/sched"
 )
 
 func TestOrderByTimeThenTie(t *testing.T) {

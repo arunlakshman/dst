@@ -3,7 +3,7 @@ package rng_test
 import (
 	"testing"
 
-	"github.com/manifesterio/dst/rng"
+	"github.com/arunlakshman/dst/rng"
 )
 
 func TestSeed42Stream(t *testing.T) {

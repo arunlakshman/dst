@@ -3,7 +3,7 @@ package kv_test
 import (
 	"testing"
 
-	"github.com/manifesterio/dst/examples/kv"
+	"github.com/arunlakshman/dst/examples/kv"
 )
 
 func TestDeterministic(t *testing.T) {

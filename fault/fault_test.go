@@ -3,8 +3,8 @@ package fault_test
 import (
 	"testing"
 
-	"github.com/manifesterio/dst/fault"
-	"github.com/manifesterio/dst/rng"
+	"github.com/arunlakshman/dst/fault"
+	"github.com/arunlakshman/dst/rng"
 )
 
 func TestQuietSilencesFaultOnly(t *testing.T) {

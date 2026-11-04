@@ -2,12 +2,12 @@
 
 Deterministic simulation tools for single-threaded Go tests: a seeded random stream, a virtual-time event heap, an FNV fingerprint, record-and-continue assertions, and cooperative fault points.
 
-Module: `github.com/manifesterio/dst`
+Module: `github.com/arunlakshman/dst`
 
 ## Install
 
 ```bash
-go get github.com/manifesterio/dst@latest
+go get github.com/arunlakshman/dst@latest
 ```
 
 ## Packages
@@ -28,11 +28,11 @@ package main
 import (
 	"fmt"
 
-	"github.com/manifesterio/dst/assert"
-	"github.com/manifesterio/dst/fault"
-	"github.com/manifesterio/dst/rng"
-	"github.com/manifesterio/dst/sched"
-	"github.com/manifesterio/dst/trace"
+	"github.com/arunlakshman/dst/assert"
+	"github.com/arunlakshman/dst/fault"
+	"github.com/arunlakshman/dst/rng"
+	"github.com/arunlakshman/dst/sched"
+	"github.com/arunlakshman/dst/trace"
 )
 
 func main() {

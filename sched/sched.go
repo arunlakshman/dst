@@ -1,6 +1,6 @@
 package sched
 
-import "github.com/manifesterio/dst/rng"
+import "github.com/arunlakshman/dst/rng"
 
 // TimeNs is virtual monotonic nanoseconds since run start.
 type TimeNs int64

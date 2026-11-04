@@ -1,3 +1,3 @@
-module github.com/manifesterio/dst
+module github.com/arunlakshman/dst
 
 go 1.26

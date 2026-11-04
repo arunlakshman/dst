@@ -1,6 +1,6 @@
 package fault
 
-import "github.com/manifesterio/dst/rng"
+import "github.com/arunlakshman/dst/rng"
 
 // Site is a stable cooperative fault point id. Do not interpolate values into it.
 type Site string
