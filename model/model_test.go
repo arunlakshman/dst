@@ -10,7 +10,7 @@ import (
 
 	"pgregory.net/rapid"
 
-	"github.com/arunlakshman/dst/model"
+	"github.com/manifesterio/dst/model"
 )
 
 type counter struct {

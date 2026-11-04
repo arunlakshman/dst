@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/arunlakshman/dst/examples/kv"
+	"github.com/manifesterio/dst/examples/kv"
 )
 
 func TestDeterministic(t *testing.T) {

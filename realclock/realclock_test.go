@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arunlakshman/dst/realclock"
+	"github.com/manifesterio/dst/realclock"
 )
 
 func TestMonoGoesForwardAndWallIsNow(t *testing.T) {

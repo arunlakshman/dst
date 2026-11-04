@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/arunlakshman/dst/eng"
+	"github.com/manifesterio/dst/eng"
 )
 
 // Doc-level smoke: ErrNotMine is the sentinel engines return for foreign acts.

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/arunlakshman/dst/eng"
-	"github.com/arunlakshman/dst/sched"
-	"github.com/arunlakshman/dst/sim"
+	"github.com/manifesterio/dst/eng"
+	"github.com/manifesterio/dst/sched"
+	"github.com/manifesterio/dst/sim"
 )
 
 func TestSameSeedSameHash(t *testing.T) {

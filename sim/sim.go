@@ -2,11 +2,11 @@
 package sim
 
 import (
-	"github.com/arunlakshman/dst/assert"
-	"github.com/arunlakshman/dst/eng"
-	"github.com/arunlakshman/dst/fault"
-	"github.com/arunlakshman/dst/rng"
-	"github.com/arunlakshman/dst/sched"
+	"github.com/manifesterio/dst/assert"
+	"github.com/manifesterio/dst/eng"
+	"github.com/manifesterio/dst/fault"
+	"github.com/manifesterio/dst/rng"
+	"github.com/manifesterio/dst/sched"
 )
 
 // ProcessID names a process in one run.

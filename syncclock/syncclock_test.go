@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/arunlakshman/dst/sched"
-	"github.com/arunlakshman/dst/syncclock"
+	"github.com/manifesterio/dst/sched"
+	"github.com/manifesterio/dst/syncclock"
 )
 
 func TestSyncTimersFireInOrderAndChain(t *testing.T) {

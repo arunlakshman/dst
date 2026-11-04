@@ -1,4 +1,4 @@
-module github.com/arunlakshman/dst
+module github.com/manifesterio/dst
 
 go 1.26.0
 

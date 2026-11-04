@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arunlakshman/dst/clock"
-	"github.com/arunlakshman/dst/rng"
-	"github.com/arunlakshman/dst/sched"
+	"github.com/manifesterio/dst/clock"
+	"github.com/manifesterio/dst/rng"
+	"github.com/manifesterio/dst/sched"
 )
 
 func TestAdvanceFiresTimersInOrder(t *testing.T) {

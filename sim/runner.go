@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/arunlakshman/dst/assert"
-	"github.com/arunlakshman/dst/eng"
-	"github.com/arunlakshman/dst/fault"
-	"github.com/arunlakshman/dst/rng"
-	"github.com/arunlakshman/dst/sched"
-	"github.com/arunlakshman/dst/trace"
+	"github.com/manifesterio/dst/assert"
+	"github.com/manifesterio/dst/eng"
+	"github.com/manifesterio/dst/fault"
+	"github.com/manifesterio/dst/rng"
+	"github.com/manifesterio/dst/sched"
+	"github.com/manifesterio/dst/trace"
 )
 
 // ErrProtocol means Step returned a value no control type and no engine accepted.

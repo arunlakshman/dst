@@ -6,7 +6,7 @@ package realclock
 import (
 	"time"
 
-	"github.com/arunlakshman/dst/sched"
+	"github.com/manifesterio/dst/sched"
 )
 
 // Clock is the process clock: Mono counts from the clock's creation using

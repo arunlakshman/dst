@@ -3,7 +3,7 @@ package kvchaos_test
 import (
 	"testing"
 
-	"github.com/arunlakshman/dst/examples/kvchaos"
+	"github.com/manifesterio/dst/examples/kvchaos"
 )
 
 func TestDeterministic(t *testing.T) {

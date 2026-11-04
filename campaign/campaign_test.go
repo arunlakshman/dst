@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arunlakshman/dst/campaign"
-	"github.com/arunlakshman/dst/trace"
+	"github.com/manifesterio/dst/campaign"
+	"github.com/manifesterio/dst/trace"
 )
 
 func TestRunFoldsHashesInSeedOrder(t *testing.T) {

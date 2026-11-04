@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arunlakshman/dst/trace"
+	"github.com/manifesterio/dst/trace"
 )
 
 // Coverage counts evaluations of one property across seeds.

@@ -2,12 +2,12 @@
 
 Deterministic simulation tools for single-threaded Go tests. A product implements `sim.Process` and `eng.Engine`; the runner owns one seeded `rng`, virtual-time `sched`, cooperative `fault` injector, record-and-continue `assert` log, and `trace` fingerprint per run.
 
-Module: `github.com/arunlakshman/dst`
+Module: `github.com/manifesterio/dst`
 
 ## Install
 
 ```bash
-go get github.com/arunlakshman/dst@latest
+go get github.com/manifesterio/dst@latest
 ```
 
 ## Contract packages

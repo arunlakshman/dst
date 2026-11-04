@@ -5,11 +5,11 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/arunlakshman/dst/assert"
-	"github.com/arunlakshman/dst/eng"
-	"github.com/arunlakshman/dst/sched"
-	"github.com/arunlakshman/dst/sim"
-	"github.com/arunlakshman/dst/trace"
+	"github.com/manifesterio/dst/assert"
+	"github.com/manifesterio/dst/eng"
+	"github.com/manifesterio/dst/sched"
+	"github.com/manifesterio/dst/sim"
+	"github.com/manifesterio/dst/trace"
 )
 
 // Result is the fingerprint of one run.

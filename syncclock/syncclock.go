@@ -5,9 +5,9 @@ package syncclock
 import (
 	"sync"
 
-	"github.com/arunlakshman/dst/clock"
-	"github.com/arunlakshman/dst/rng"
-	"github.com/arunlakshman/dst/sched"
+	"github.com/manifesterio/dst/clock"
+	"github.com/manifesterio/dst/rng"
+	"github.com/manifesterio/dst/sched"
 )
 
 // Sync is a goroutine-safe virtual clock for code under test that starts timers

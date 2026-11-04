@@ -1,7 +1,7 @@
 // Package fault is cooperative fault injection drawn from one rng stream.
 package fault
 
-import "github.com/arunlakshman/dst/rng"
+import "github.com/manifesterio/dst/rng"
 
 // Site is a stable cooperative fault point id. Do not interpolate values into it.
 type Site string

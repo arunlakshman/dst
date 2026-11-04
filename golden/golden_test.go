@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arunlakshman/dst/golden"
+	"github.com/manifesterio/dst/golden"
 )
 
 type fatalTB struct {

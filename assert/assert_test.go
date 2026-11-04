@@ -3,7 +3,7 @@ package assert_test
 import (
 	"testing"
 
-	"github.com/arunlakshman/dst/assert"
+	"github.com/manifesterio/dst/assert"
 )
 
 func TestAlwaysCoverageAndFail(t *testing.T) {

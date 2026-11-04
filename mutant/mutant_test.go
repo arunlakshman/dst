@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/arunlakshman/dst/mutant"
+	"github.com/manifesterio/dst/mutant"
 )
 
 // captureTB records Fatalf without failing the parent test.

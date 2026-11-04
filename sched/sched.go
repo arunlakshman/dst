@@ -2,7 +2,7 @@
 // heap of one run.
 package sched
 
-import "github.com/arunlakshman/dst/rng"
+import "github.com/manifesterio/dst/rng"
 
 // TimeNs is virtual monotonic nanoseconds since run start.
 type TimeNs int64
