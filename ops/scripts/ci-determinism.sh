@@ -14,6 +14,7 @@ pkgs=(
   ./assert
   ./fault
   ./clock
+  ./check
 )
 
 echo "== determinismcheck"
