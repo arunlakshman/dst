@@ -39,11 +39,19 @@ The runner handles control types first, then tries engines in register order unt
 |---|---|
 | `rng` | SplitMix64 stream (`Uint64`, `Intn`, `Float64`, `Chance`, `Between`, `Calls`, `Bytes`) |
 | `sched` | Virtual mono clock and `(at, tie, seq)` event heap |
+| `clock` | Wall offset over `sched`, `AfterFunc` / `Advance` on the same heap |
 | `trace` | Running FNV-1a `Hash`, optional `Ring[T]` |
 | `assert` | Always / Sometimes / Reachable / Unreachable with coverage |
 | `fault` | Maybe / MaybeP / Fault with per-site latch and Quiet |
 | `campaign` | Parallel seed runner. Folds per-seed hashes in seed order and merges coverage. |
 | `mutant` | `Require` / `RequireClean` helpers for planted-bug and false-alarm checks |
+| `model` | Lockstep model/subject `Step`, DirtyReboot persistence helpers (no rapid import) |
+| `golden` | Fixed seed→hash asserts plus optional golden file Load/Save |
+
+## Docs
+
+- [docs/lessons.md](docs/lessons.md) — one RNG, virtual time, issue-time faults, phases, record-and-continue, Go sans-I/O
+- [docs/paper.md](docs/paper.md) — SOSP'21 ShardStore ideas mapped onto dst
 
 ## How to run campaigns
 
@@ -79,7 +87,7 @@ These stay out of this module on purpose:
 - Product I/O fakes beyond the tiny KV examples
 - Full network-partition simulators
 
-Wall clocks, product fault policy, and domain IDs belong in the importing project.
+Product wall clocks, product fault policy, and domain IDs belong in the importing project. Use `clock` only for virtual time over `sched`.
 
 ## License
 
