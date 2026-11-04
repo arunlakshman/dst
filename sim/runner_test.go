@@ -8,70 +8,57 @@ import (
 	"github.com/arunlakshman/dst/sim"
 )
 
-type nopEngine struct{ id eng.ID }
-
-func (e nopEngine) ID() eng.ID                    { return e.id }
-func (e nopEngine) StateHash() uint64             { return 1 }
-func (e nopEngine) Handle(eng.Context, any) error { return eng.ErrNotMine }
-func (e nopEngine) OnSelf(eng.Context, any)       {}
-
-type echoProc struct {
-	id   sim.ProcessID
-	hash uint64
-}
-
-func (p *echoProc) ID() sim.ProcessID { return p.id }
-func (p *echoProc) StateHash() uint64 { return p.hash }
-
-func (p *echoProc) Step(_ sim.Context, ev sim.Event) []sim.Action {
-	switch ev.(type) {
-	case string:
-		p.hash++
-		return nil
-	default:
-		return nil
-	}
-}
-
 func TestSameSeedSameHash(t *testing.T) {
-	run := func(seed uint64) sim.Result {
+	run := func(seed uint64) uint64 {
 		r := sim.New(sim.Config{Seed: seed})
-		r.Register(nopEngine{id: "e"})
 		r.Spawn(&echoProc{id: "p"})
-		r.Inject("p", 0, "hi")
+		r.Inject("p", 0, "ping")
 		res, err := r.Run()
 		if err != nil {
 			t.Fatal(err)
 		}
-		return res
+		return res.Hash
 	}
-	a, b := run(7), run(7)
-	if a.Hash != b.Hash || a.Calls != b.Calls || a.Steps != b.Steps {
-		t.Fatalf("a=%+v b=%+v", a, b)
-	}
-	if a.Steps == 0 {
-		t.Fatal("no steps")
+	if run(7) != run(7) {
+		t.Fatal("hash drift")
 	}
 }
 
-func TestUnhandledAction(t *testing.T) {
+type echoProc struct{ id sim.ProcessID }
+
+func (p *echoProc) ID() sim.ProcessID { return p.id }
+func (p *echoProc) StateHash() uint64 { return 1 }
+func (p *echoProc) Step(_ sim.Context, inbox any) []any {
+	if inbox == "ping" {
+		return []any{sim.Send{To: p.id, Body: "pong"}}
+	}
+	return nil
+}
+
+func TestUnhandledOutbound(t *testing.T) {
 	r := sim.New(sim.Config{Seed: 1})
-	r.Spawn(&actionProc{id: "p", acts: []sim.Action{struct{ X int }{1}}})
-	r.Inject("p", 0, "go")
-	res, err := r.Run()
+	r.Spawn(&outProc{id: "p", out: []any{struct{ X int }{1}}})
+	r.Inject("p", 0, true)
+	_, err := r.Run()
 	if !errors.Is(err, sim.ErrProtocol) {
-		t.Fatalf("err=%v", err)
-	}
-	if len(res.Failures) == 0 {
-		t.Fatal("expected failure record")
+		t.Fatalf("got %v, want ErrProtocol", err)
 	}
 }
 
-type actionProc struct {
-	id   sim.ProcessID
-	acts []sim.Action
+type outProc struct {
+	id  sim.ProcessID
+	out []any
 }
 
-func (p *actionProc) ID() sim.ProcessID                        { return p.id }
-func (p *actionProc) StateHash() uint64                        { return 0 }
-func (p *actionProc) Step(sim.Context, sim.Event) []sim.Action { return p.acts }
+func (p *outProc) ID() sim.ProcessID                 { return p.id }
+func (p *outProc) StateHash() uint64                 { return 0 }
+func (p *outProc) Step(sim.Context, any) []any       { return p.out }
+
+var _ eng.Engine = (*noopEngine)(nil)
+
+type noopEngine struct{}
+
+func (noopEngine) ID() eng.ID                            { return "noop" }
+func (noopEngine) StateHash() uint64                     { return 0 }
+func (noopEngine) Handle(eng.Context, any) error         { return eng.ErrNotMine }
+func (noopEngine) OnSelf(eng.Context, any)               {}

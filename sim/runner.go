@@ -12,8 +12,8 @@ import (
 	"github.com/arunlakshman/dst/trace"
 )
 
-// ErrProtocol means an action matched no control type and no registered engine.
-var ErrProtocol = errors.New("sim: unhandled action")
+// ErrProtocol means Step returned a value no control type and no engine accepted.
+var ErrProtocol = errors.New("sim: unhandled outbound value")
 
 // Runner owns one rng, sched, fault.Injector, assert.Log, and trace.Hash for a run.
 type Runner struct {
@@ -29,7 +29,7 @@ type Runner struct {
 	timers   map[timerKey]uint64
 	failures []Failure
 	steps    int
-	events   int
+	pops     int
 	protoErr error
 }
 
@@ -38,10 +38,10 @@ type timerKey struct {
 	id  uint64
 }
 
-// New builds a Runner for cfg. MaxEvents defaults to 1_000_000 when zero.
+// New builds a Runner for cfg. MaxPops defaults to 1_000_000 when zero.
 func New(cfg Config) *Runner {
-	if cfg.MaxEvents <= 0 {
-		cfg.MaxEvents = defaultMaxEvents
+	if cfg.MaxPops <= 0 {
+		cfg.MaxPops = defaultMaxPops
 	}
 	r := &Runner{
 		cfg:     cfg,
@@ -71,21 +71,21 @@ func (r *Runner) Spawn(p Process) {
 	delete(r.crashed, id)
 }
 
-// Inject schedules a workload event for process to after delay.
-func (r *Runner) Inject(to ProcessID, after sched.TimeNs, ev Event) {
-	r.deliver(to, after, ev)
+// Inject schedules an inbox value for process to after delay.
+func (r *Runner) Inject(to ProcessID, after sched.TimeNs, inbox any) {
+	r.deliver(to, after, inbox)
 }
 
 // Run drains the scheduler under cfg limits and returns the run fingerprint.
 func (r *Runner) Run() (Result, error) {
-	for r.sched.Len() > 0 && r.events < r.cfg.MaxEvents {
+	for r.sched.Len() > 0 && r.pops < r.cfg.MaxPops {
 		if r.cfg.Steps > 0 && r.steps >= r.cfg.Steps {
 			break
 		}
 		if !r.sched.Next() {
 			break
 		}
-		r.events++
+		r.pops++
 	}
 	for _, e := range r.engines {
 		r.hash.Uint64(e.StateHash())
@@ -93,20 +93,20 @@ func (r *Runner) Run() (Result, error) {
 	res := Result{
 		Hash:     r.hash.Sum(),
 		Steps:    r.steps,
-		Events:   r.events,
+		Pops:     r.pops,
 		Calls:    r.rand.Calls(),
 		Failures: append([]Failure(nil), r.failures...),
 	}
 	return res, r.protoErr
 }
 
-func (r *Runner) deliver(to ProcessID, after sched.TimeNs, ev Event) {
+func (r *Runner) deliver(to ProcessID, after sched.TimeNs, inbox any) {
 	r.sched.After(after, "deliver:"+string(to), func() {
-		r.handleProcessEvent(to, ev)
+		r.step(to, inbox)
 	})
 }
 
-func (r *Runner) handleProcessEvent(to ProcessID, ev Event) {
+func (r *Runner) step(to ProcessID, inbox any) {
 	if r.crashed[to] {
 		return
 	}
@@ -116,19 +116,19 @@ func (r *Runner) handleProcessEvent(to ProcessID, ev Event) {
 		return
 	}
 	cx := procContext{r: r}
-	acts := p.Step(cx, ev)
+	out := p.Step(cx, inbox)
 	r.steps++
 	r.hash.Int64(int64(r.sched.Mono()))
 	r.hash.String(string(to))
 	r.hash.Uint64(p.StateHash())
-	r.hash.Uint64(uint64(len(acts)))
-	for _, act := range acts {
-		r.route(to, act)
+	r.hash.Uint64(uint64(len(out)))
+	for _, v := range out {
+		r.route(to, v)
 	}
 }
 
-func (r *Runner) route(from ProcessID, act Action) {
-	switch a := act.(type) {
+func (r *Runner) route(from ProcessID, v any) {
+	switch a := v.(type) {
 	case Send:
 		r.deliver(a.To, 0, a.Body)
 		return
@@ -146,7 +146,7 @@ func (r *Runner) route(from ProcessID, act Action) {
 	ecx := engContext{r: r, from: eng.ActorID(from), engine: nil}
 	for _, e := range r.engines {
 		ecx.engine = e
-		err := e.Handle(ecx, act)
+		err := e.Handle(ecx, v)
 		if errors.Is(err, eng.ErrNotMine) {
 			continue
 		}
@@ -156,8 +156,8 @@ func (r *Runner) route(from ProcessID, act Action) {
 		}
 		return
 	}
-	r.asserts.Unreachable("sim: unhandled action", assert.Pair{Key: "type", Value: fmt.Sprintf("%T", act)})
-	r.protoErr = errors.Join(r.protoErr, fmt.Errorf("%w: %T", ErrProtocol, act))
+	r.asserts.Unreachable("sim: unhandled outbound", assert.Pair{Key: "type", Value: fmt.Sprintf("%T", v)})
+	r.protoErr = errors.Join(r.protoErr, fmt.Errorf("%w: %T", ErrProtocol, v))
 }
 
 func (r *Runner) setTimer(pid ProcessID, t SetTimer) {
@@ -170,7 +170,7 @@ func (r *Runner) setTimer(pid ProcessID, t SetTimer) {
 			return
 		}
 		delete(r.timers, key)
-		r.handleProcessEvent(pid, body)
+		r.step(pid, body)
 	})
 }
 
@@ -198,8 +198,8 @@ func (c engContext) Faults() *fault.Injector { return c.r.faults }
 func (c engContext) Assert() *assert.Log     { return c.r.asserts }
 func (c engContext) From() eng.ActorID       { return c.from }
 
-func (c engContext) Deliver(to eng.ActorID, after sched.TimeNs, event any) {
-	c.r.deliver(ProcessID(to), after, event)
+func (c engContext) Deliver(to eng.ActorID, after sched.TimeNs, inbox any) {
+	c.r.deliver(ProcessID(to), after, inbox)
 }
 
 func (c engContext) Self(after sched.TimeNs, body any) {

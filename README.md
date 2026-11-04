@@ -33,9 +33,11 @@ go get github.com/arunlakshman/dst@latest
 2. Implement `eng.Engine` (`ID`, `StateHash`, `Handle`, `OnSelf`).
 3. `r := sim.New(sim.Config{Seed: seed})`, then `r.Register(engine)`, `r.Spawn(process)`, `r.Inject(...)`, `r.Run()`.
 
-`Step` returns control actions or domain actions. The runner handles control types first, then tries engines in register order until one does not return `eng.ErrNotMine`.
+`Process.Step(cx, inbox any) []any` takes one inbox value and returns outbound values. Those are either control structs in package `sim` (`Send`, `SetTimer`, …) or domain values an `eng.Engine` understands. There is no `sim.Event` / `sim.Action` alias. That naming reads like "simulated action" and fights the real meaning (inbox in, outbound out).
 
-A packaged form lives under `examples/kv`: `Store` is an `eng.Engine`, `Node` and `Client` are `sim.Process` values. Same seed must yield the same `Result.Hash` and `Calls`.
+The runner handles control types first, then tries engines in register order until one does not return `eng.ErrNotMine`.
+
+`examples/kv` wires a store engine plus node and client processes. Same seed must yield the same `Result.Hash` and `Calls`.
 
 ## Mechanism quickstart
 
@@ -84,15 +86,15 @@ func main() {
 }
 ```
 
-## Stay out (v1)
+## Stay out
 
 These stay out of this module on purpose:
 
 - Spec / rapid property engines
-- Runtime union or domain event vocabularies
+- Closed domain message vocabularies (Kafka, S3, product RPCs)
 - Campaign runners and corpus orchestration
-- Kafka / S3 or other I/O fakes
-- Process, Workload, Engine, or network partition simulators
+- Product I/O fakes beyond the tiny KV example
+- Full network-partition simulators
 
 Wall clocks, product fault policy, and domain IDs belong in the importing project.
 

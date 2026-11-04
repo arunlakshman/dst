@@ -12,17 +12,16 @@ import (
 // ProcessID names a process in one run.
 type ProcessID = eng.ActorID
 
-// Event is an opaque process inbox value.
-type Event = any
-
-// Action is an opaque value from Process.Step: a control action or an engine action.
-type Action = any
-
 // Process is one actor the runner steps.
+//
+// Step takes one inbox value and returns zero or more outbound values.
+// Outbound values are either a control struct in this package (Send, SetTimer, …)
+// or a domain value an eng.Engine understands. There is no separate Event/Action
+// type: those names collide with "simulated action" in everyday English.
 type Process interface {
 	ID() ProcessID
 	StateHash() uint64
-	Step(cx Context, ev Event) []Action
+	Step(cx Context, inbox any) (out []any)
 }
 
 // Context is lent to Process.Step.
@@ -36,14 +35,14 @@ type Context interface {
 // Send delivers Body to To at the next turn (delay 0).
 type Send struct {
 	To   ProcessID
-	Body Event
+	Body any
 }
 
 // SetTimer arms a timer on the issuing process. Body is delivered when it fires.
 type SetTimer struct {
 	ID    uint64
 	After sched.TimeNs
-	Body  Event
+	Body  any
 }
 
 // CancelTimer cancels a pending timer on the issuing process.
@@ -56,9 +55,9 @@ type Crash struct{}
 
 // Config configures one Runner.
 type Config struct {
-	Seed      uint64
-	Steps     int // stop after this many delivered process steps (0 = drain until empty / MaxEvents)
-	MaxEvents int // hard cap on scheduler pops; default 1_000_000
+	Seed    uint64
+	Steps   int // stop after this many Process.Step calls (0 = drain until empty / MaxPops)
+	MaxPops int // hard cap on scheduler pops; default 1_000_000
 }
 
 // Failure is one assert onFail record collected during Run.
@@ -70,10 +69,10 @@ type Failure struct {
 // Result is the fingerprint and counters of one Run.
 type Result struct {
 	Hash     uint64
-	Steps    int
-	Events   int
+	Steps    int // Process.Step calls
+	Pops     int // scheduler pops
 	Calls    uint64
 	Failures []Failure
 }
 
-const defaultMaxEvents = 1_000_000
+const defaultMaxPops = 1_000_000

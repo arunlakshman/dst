@@ -115,12 +115,12 @@ func newNode(id sim.ProcessID) *node { return &node{id: id} }
 func (n *node) ID() sim.ProcessID { return n.id }
 func (n *node) StateHash() uint64 { return 0 }
 
-func (n *node) Step(_ sim.Context, ev sim.Event) []sim.Action {
-	switch e := ev.(type) {
+func (n *node) Step(_ sim.Context, inbox any) []any {
+	switch e := inbox.(type) {
 	case putRequest:
-		return []sim.Action{putAction{Key: e.Key, Value: e.Value}}
+		return []any{putAction{Key: e.Key, Value: e.Value}}
 	case getRequest:
-		return []sim.Action{getAction{Key: e.Key, Want: e.Want, ReplyTo: e.ReplyTo}}
+		return []any{getAction{Key: e.Key, Want: e.Want, ReplyTo: e.ReplyTo}}
 	default:
 		return nil
 	}
@@ -157,8 +157,8 @@ func newClient(id, nodeID sim.ProcessID, script []op) *client {
 func (c *client) ID() sim.ProcessID { return c.id }
 func (c *client) StateHash() uint64 { return 0 }
 
-func (c *client) Step(cx sim.Context, ev sim.Event) []sim.Action {
-	switch e := ev.(type) {
+func (c *client) Step(cx sim.Context, inbox any) []any {
+	switch e := inbox.(type) {
 	case begin, nextOp:
 		return c.issue(cx)
 	case getResponse:
@@ -173,14 +173,14 @@ func (c *client) Step(cx sim.Context, ev sim.Event) []sim.Action {
 	}
 }
 
-func (c *client) issue(cx sim.Context) []sim.Action {
+func (c *client) issue(cx sim.Context) []any {
 	if c.pc >= len(c.script) {
 		return nil
 	}
 	cur := c.script[c.pc]
 	c.pc++
 
-	var out []sim.Action
+	var out []any
 	switch cur.kind {
 	case kindPut:
 		out = append(out, sim.Send{To: c.node, Body: putRequest{Key: cur.key, Value: cur.value}})
