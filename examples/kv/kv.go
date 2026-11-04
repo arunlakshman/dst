@@ -1,4 +1,4 @@
-// Package kv is a tiny Store engine + Node/Client processes on sim/eng.
+// Package kv shows how to implement eng.Engine and sim.Process for a tiny store.
 package kv
 
 import (
@@ -12,51 +12,56 @@ import (
 	"github.com/arunlakshman/dst/trace"
 )
 
-// Result is the fingerprint of one toy KV run.
+// Result is the fingerprint of one run.
 type Result struct {
 	Hash  uint64
 	Calls uint64
 	Steps int
 }
 
-// Run executes a small map store under one seeded sim.Runner.
+// Run drives one client, one node, and one store under a seeded Runner.
 func Run(seed uint64) Result {
 	r := sim.New(sim.Config{Seed: seed})
 	store := newStore("kv")
 	node := newNode("n1")
-	client := newClient("c1", "n1")
+	client := newClient("c1", "n1", []op{
+		putOp("a", "1"),
+		putOp("a", "2"),
+		getOp("a", "2"),
+	})
 	r.Register(store)
 	r.Spawn(node)
 	r.Spawn(client)
-	r.Inject("c1", 0, start{})
+	r.Inject(client.id, 0, begin{})
 	res, _ := r.Run()
 	return Result{Hash: res.Hash, Calls: res.Calls, Steps: res.Steps}
 }
 
-type start struct{}
-type doPut2 struct{}
-type doGet struct{}
+// ---- messages ----
 
-type putMsg struct {
-	Key, Value string
+type begin struct{}
+type nextOp struct{}
+
+type putRequest struct{ Key, Value string }
+
+type getRequest struct {
+	Key, Want string
+	ReplyTo   eng.ActorID
 }
 
-type getMsg struct {
-	Key string
+type getResponse struct {
+	Key, Value, Want string
 }
 
-type getReply struct {
-	Key, Value string
+// ---- engine actions ----
+
+type putAction struct{ Key, Value string }
+type getAction struct {
+	Key, Want string
+	ReplyTo   eng.ActorID
 }
 
-type putAct struct {
-	Key, Value string
-}
-
-type getAct struct {
-	Key     string
-	ReplyTo eng.ActorID
-}
+// ---- store (eng.Engine) ----
 
 type store struct {
 	id   eng.ID
@@ -81,21 +86,25 @@ func (s *store) StateHash() uint64 {
 
 func (s *store) Handle(cx eng.Context, act any) error {
 	switch a := act.(type) {
-	case putAct:
+	case putAction:
 		if cx.Faults().Fault("kv.write", 0.1) {
 			return nil
 		}
 		s.data[a.Key] = a.Value
 		cx.Assert().Always(s.data[a.Key] == a.Value, "put sticks", assert.Pair{Key: "k", Value: a.Key})
 		return nil
-	case getAct:
+	case getAction:
 		delay := sched.TimeNs(cx.Rand().Between(1, 5) * 1_000_000)
-		cx.Deliver(a.ReplyTo, delay, getReply{Key: a.Key, Value: s.data[a.Key]})
+		cx.Deliver(a.ReplyTo, delay, getResponse{
+			Key: a.Key, Value: s.data[a.Key], Want: a.Want,
+		})
 		return nil
 	default:
 		return eng.ErrNotMine
 	}
 }
+
+// ---- node (sim.Process) ----
 
 type node struct {
 	id sim.ProcessID
@@ -106,49 +115,83 @@ func newNode(id sim.ProcessID) *node { return &node{id: id} }
 func (n *node) ID() sim.ProcessID { return n.id }
 func (n *node) StateHash() uint64 { return 0 }
 
-func (n *node) Step(cx sim.Context, ev sim.Event) []sim.Action {
+func (n *node) Step(_ sim.Context, ev sim.Event) []sim.Action {
 	switch e := ev.(type) {
-	case putMsg:
-		return []sim.Action{putAct{Key: e.Key, Value: e.Value}}
-	case getMsg:
-		return []sim.Action{getAct{Key: e.Key, ReplyTo: eng.ActorID(n.id)}}
-	case getReply:
-		cx.Assert().Always(e.Value == "2", "read matches", assert.Pair{Key: "k", Value: e.Key})
-		return nil
+	case putRequest:
+		return []sim.Action{putAction{Key: e.Key, Value: e.Value}}
+	case getRequest:
+		return []sim.Action{getAction{Key: e.Key, Want: e.Want, ReplyTo: e.ReplyTo}}
 	default:
 		return nil
 	}
 }
 
-type client struct {
-	id, node sim.ProcessID
+// ---- client workload ----
+
+type opKind uint8
+
+const (
+	kindPut opKind = iota
+	kindGet
+)
+
+type op struct {
+	kind       opKind
+	key, value string
+	want       string
 }
 
-func newClient(id, nodeID sim.ProcessID) *client {
-	return &client{id: id, node: nodeID}
+func putOp(key, value string) op { return op{kind: kindPut, key: key, value: value} }
+func getOp(key, want string) op  { return op{kind: kindGet, key: key, want: want} }
+
+type client struct {
+	id, node sim.ProcessID
+	script   []op
+	pc       int
+}
+
+func newClient(id, nodeID sim.ProcessID, script []op) *client {
+	return &client{id: id, node: nodeID, script: script}
 }
 
 func (c *client) ID() sim.ProcessID { return c.id }
 func (c *client) StateHash() uint64 { return 0 }
 
 func (c *client) Step(cx sim.Context, ev sim.Event) []sim.Action {
-	gap := sched.TimeNs(cx.Rand().Between(1, 20) * 1_000_000)
-	switch ev.(type) {
-	case start:
-		return []sim.Action{
-			sim.Send{To: c.node, Body: putMsg{Key: "a", Value: "1"}},
-			sim.SetTimer{ID: 1, After: gap, Body: doPut2{}},
-		}
-	case doPut2:
-		return []sim.Action{
-			sim.Send{To: c.node, Body: putMsg{Key: "a", Value: "2"}},
-			sim.SetTimer{ID: 2, After: gap, Body: doGet{}},
-		}
-	case doGet:
-		return []sim.Action{
-			sim.Send{To: c.node, Body: getMsg{Key: "a"}},
-		}
+	switch e := ev.(type) {
+	case begin, nextOp:
+		return c.issue(cx)
+	case getResponse:
+		cx.Assert().Always(e.Value == e.Want, "read matches",
+			assert.Pair{Key: "k", Value: e.Key},
+			assert.Pair{Key: "got", Value: e.Value},
+			assert.Pair{Key: "want", Value: e.Want},
+		)
+		return nil
 	default:
 		return nil
 	}
+}
+
+func (c *client) issue(cx sim.Context) []sim.Action {
+	if c.pc >= len(c.script) {
+		return nil
+	}
+	cur := c.script[c.pc]
+	c.pc++
+
+	var out []sim.Action
+	switch cur.kind {
+	case kindPut:
+		out = append(out, sim.Send{To: c.node, Body: putRequest{Key: cur.key, Value: cur.value}})
+	case kindGet:
+		out = append(out, sim.Send{To: c.node, Body: getRequest{
+			Key: cur.key, Want: cur.want, ReplyTo: eng.ActorID(c.id),
+		}})
+	}
+	if c.pc < len(c.script) {
+		gap := sched.TimeNs(cx.Rand().Between(1, 20) * 1_000_000)
+		out = append(out, sim.SetTimer{ID: uint64(c.pc), After: gap, Body: nextOp{}})
+	}
+	return out
 }
