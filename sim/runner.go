@@ -27,6 +27,7 @@ type Runner struct {
 	procs    map[ProcessID]Process
 	crashed  map[ProcessID]bool
 	exited   map[ProcessID]bool
+	inc      map[ProcessID]uint64 // incarnation counter of each process
 	timers   map[timerKey]uint64
 	failures []Failure
 	steps    int
@@ -50,6 +51,7 @@ func New(cfg Config) *Runner {
 		procs:   map[ProcessID]Process{},
 		crashed: map[ProcessID]bool{},
 		exited:  map[ProcessID]bool{},
+		inc:     map[ProcessID]uint64{},
 		timers:  map[timerKey]uint64{},
 		hash:    trace.New(),
 	}
@@ -69,6 +71,9 @@ func (r *Runner) Register(e eng.Engine) {
 // Spawn adds or replaces a process and clears a prior crash for that ID.
 func (r *Runner) Spawn(p Process) {
 	id := p.ID()
+	if _, known := r.procs[id]; known {
+		r.inc[id]++
+	}
 	r.procs[id] = p
 	delete(r.crashed, id)
 	delete(r.exited, id)
@@ -109,9 +114,25 @@ func (r *Runner) Run() (Result, error) {
 	return res, r.protoErr
 }
 
+// Incarnation rules. Each process has an incarnation number; Restart with a
+// new process (or Spawn over an old one) raises it. A value that is addressed
+// to the incarnation of its sender is dropped when that incarnation is gone:
+// a timer, a Send to oneself, and an engine reply to the process that made the
+// call. A value for another process, or from Inject, goes to whatever
+// incarnation is current when it arrives.
+
 func (r *Runner) deliver(to ProcessID, after sched.TimeNs, inbox any) {
 	r.sched.After(after, "deliver:"+string(to), func() {
 		r.step(to, inbox)
+	})
+}
+
+// deliverTo is deliver for a value that belongs to incarnation inc of to.
+func (r *Runner) deliverTo(to ProcessID, inc uint64, after sched.TimeNs, inbox any) {
+	r.sched.After(after, "deliver:"+string(to), func() {
+		if r.inc[to] == inc {
+			r.step(to, inbox)
+		}
 	})
 }
 
@@ -139,7 +160,11 @@ func (r *Runner) step(to ProcessID, inbox any) {
 func (r *Runner) route(from ProcessID, v any) {
 	switch a := v.(type) {
 	case Send:
-		r.deliver(a.To, 0, a.Body)
+		if a.To == from {
+			r.deliverTo(from, r.inc[from], 0, a.Body)
+		} else {
+			r.deliver(a.To, 0, a.Body)
+		}
 		return
 	case SetTimer:
 		r.setTimer(from, a)
@@ -161,13 +186,21 @@ func (r *Runner) route(from ProcessID, v any) {
 	case Restart:
 		delete(r.crashed, a.Who)
 		delete(r.exited, a.Who)
+		if a.New != nil {
+			if a.New.ID() != a.Who {
+				r.asserts.Unreachable("sim: restart with another ID", assert.Pair{Key: "who", Value: string(a.Who)})
+				return
+			}
+			r.procs[a.Who] = a.New
+			r.inc[a.Who]++
+		}
 		if a.Boot != nil {
-			r.deliver(a.Who, 0, a.Boot)
+			r.deliverTo(a.Who, r.inc[a.Who], 0, a.Boot)
 		}
 		return
 	}
 
-	ecx := engContext{r: r, from: eng.ActorID(from), engine: nil}
+	ecx := engContext{r: r, from: eng.ActorID(from), inc: r.inc[from], engine: nil}
 	for _, e := range r.engines {
 		ecx.engine = e
 		err := e.Handle(ecx, v)
@@ -189,8 +222,9 @@ func (r *Runner) setTimer(pid ProcessID, t SetTimer) {
 	r.timers[key]++
 	gen := r.timers[key]
 	body := t.Body
+	inc := r.inc[pid]
 	r.sched.After(t.After, "timer", func() {
-		if r.timers[key] != gen {
+		if r.timers[key] != gen || r.inc[pid] != inc {
 			return
 		}
 		delete(r.timers, key)
@@ -214,6 +248,7 @@ func (c procContext) Assert() *assert.Log     { return c.r.asserts }
 type engContext struct {
 	r      *Runner
 	from   eng.ActorID
+	inc    uint64 // incarnation of from when the engine was called
 	engine eng.Engine
 }
 
@@ -224,13 +259,17 @@ func (c engContext) Assert() *assert.Log     { return c.r.asserts }
 func (c engContext) From() eng.ActorID       { return c.from }
 
 func (c engContext) Deliver(to eng.ActorID, after sched.TimeNs, inbox any) {
+	if ProcessID(to) == ProcessID(c.from) {
+		c.r.deliverTo(ProcessID(to), c.inc, after, inbox)
+		return
+	}
 	c.r.deliver(ProcessID(to), after, inbox)
 }
 
 func (c engContext) Self(after sched.TimeNs, body any) {
 	e := c.engine
 	c.r.sched.After(after, "self:"+string(e.ID()), func() {
-		ecx := engContext{r: c.r, from: c.from, engine: e}
+		ecx := engContext{r: c.r, from: c.from, inc: c.inc, engine: e}
 		e.OnSelf(ecx, body)
 	})
 }

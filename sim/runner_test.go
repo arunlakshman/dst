@@ -269,3 +269,73 @@ func TestCrashWhoAndExit(t *testing.T) {
 		t.Fatal("Spawn must clear exit")
 	}
 }
+
+// callEngine answers an "io" call after 10ns with "io-done" to the caller.
+type callEngine struct{}
+
+func (callEngine) ID() eng.ID              { return "io" }
+func (callEngine) StateHash() uint64       { return 0 }
+func (callEngine) OnSelf(eng.Context, any) {}
+func (callEngine) Handle(cx eng.Context, act any) error {
+	if act != "io" {
+		return eng.ErrNotMine
+	}
+	cx.Deliver(cx.From(), 10, "io-done")
+	return nil
+}
+
+func TestRestartDropsStaleTimerAndReply(t *testing.T) {
+	var seen []string
+	newProc := func(name string) *fnProc {
+		return &fnProc{id: "n", step: func(_ sim.Context, inbox any) []any {
+			seen = append(seen, name+":"+inbox.(string))
+			if inbox == "boot" && name == "old" {
+				return []any{sim.SetTimer{ID: 1, After: 20, Body: "timer"}, "io"}
+			}
+			return nil
+		}}
+	}
+	r := sim.New(sim.Config{Seed: 1})
+	r.Register(callEngine{})
+	r.Spawn(newProc("old"))
+	// "sup" restarts n with a new process at t=5: after the old boot sent its
+	// call and armed its timer, before the reply (t=10) and the timer (t=20).
+	r.Spawn(&fnProc{id: "sup", step: func(sim.Context, any) []any {
+		return []any{sim.Restart{Who: "n", Boot: "boot", New: newProc("new")}}
+	}})
+	r.Inject("n", 0, "boot")
+	r.Inject("sup", 5, "restart")
+	if _, err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range seen {
+		if s == "new:io-done" || s == "new:timer" {
+			t.Fatalf("new incarnation saw a stale value: %v", seen)
+		}
+	}
+	want := []string{"old:boot", "new:boot"}
+	if len(seen) != 2 || seen[0] != want[0] || seen[1] != want[1] {
+		t.Fatalf("seen = %v, want %v", seen, want)
+	}
+}
+
+func TestCurrentIncarnationStillGetsItsReplyAndTimer(t *testing.T) {
+	var seen []string
+	p := &fnProc{id: "n", step: func(_ sim.Context, inbox any) []any {
+		seen = append(seen, inbox.(string))
+		if inbox == "boot" {
+			return []any{sim.SetTimer{ID: 1, After: 20, Body: "timer"}, "io"}
+		}
+		return nil
+	}}
+	r := sim.New(sim.Config{Seed: 1})
+	r.Register(callEngine{})
+	r.Spawn(p)
+	r.Inject("n", 0, "boot")
+	if _, err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 3 || seen[1] != "io-done" || seen[2] != "timer" {
+		t.Fatalf("seen = %v", seen)
+	}
+}

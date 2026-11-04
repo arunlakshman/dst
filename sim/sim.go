@@ -68,11 +68,18 @@ type Crash struct {
 // shutdown from a failure and not restart the process.
 type Exit struct{}
 
-// Restart clears Crash for Who. If Boot is non-nil, it is delivered to Who at
-// delay 0 after the clear. Any process may return Restart; Who need not be the issuer.
+// Restart clears Crash for Who and starts a new incarnation of it. If New is
+// non-nil it replaces the process object (its ID must be Who). If Boot is
+// non-nil, it is delivered to Who at delay 0 after the clear. Any process may
+// return Restart; Who need not be the issuer.
+//
+// A new incarnation never sees anything that belongs to the old one: timers the
+// old one armed are dropped, and so are replies that an engine sends back to
+// the old one (see "Incarnation rules" in runner.go).
 type Restart struct {
 	Who  ProcessID
 	Boot any
+	New  Process
 }
 
 // Config configures one Runner.
