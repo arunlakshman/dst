@@ -1,6 +1,6 @@
 # dst
 
-Deterministic simulation tools for single-threaded Go tests: a seeded random stream, a virtual-time event heap, an FNV fingerprint, record-and-continue assertions, and cooperative fault points.
+Deterministic simulation tools for single-threaded Go tests: a seeded random stream, a virtual-time event heap, an FNV fingerprint, record-and-continue assertions, cooperative fault points, and process/engine contracts on top.
 
 Module: `github.com/arunlakshman/dst`
 
@@ -10,7 +10,7 @@ Module: `github.com/arunlakshman/dst`
 go get github.com/arunlakshman/dst@latest
 ```
 
-## Packages
+## Mechanism packages
 
 | Package | Role |
 |---|---|
@@ -20,7 +20,24 @@ go get github.com/arunlakshman/dst@latest
 | `assert` | Always / Sometimes / Reachable / Unreachable with coverage |
 | `fault` | Maybe / MaybeP / Fault with per-site latch and Quiet |
 
-## Quickstart
+## Contract packages
+
+| Package | Role |
+|---|---|
+| `eng` | `Engine` + `Context` (`Deliver`, `Self`). Returns `ErrNotMine` for foreign actions. Does not import `sim`. |
+| `sim` | `Process`, `Runner`, control actions (`Send`, `SetTimer`, `CancelTimer`, `Crash`). Owns one `rng`, `sched`, `fault.Injector`, `assert.Log`, and `trace.Hash` per run. |
+
+## How to wire a Process and Engine
+
+1. Implement `sim.Process` (`ID`, `StateHash`, `Step`).
+2. Implement `eng.Engine` (`ID`, `StateHash`, `Handle`, `OnSelf`).
+3. `r := sim.New(sim.Config{Seed: seed})`, then `r.Register(engine)`, `r.Spawn(process)`, `r.Inject(...)`, `r.Run()`.
+
+`Step` returns control actions or domain actions. The runner handles control types first, then tries engines in register order until one does not return `eng.ErrNotMine`.
+
+A packaged form lives under `examples/kv`: `Store` is an `eng.Engine`, `Node` and `Client` are `sim.Process` values. Same seed must yield the same `Result.Hash` and `Calls`.
+
+## Mechanism quickstart
 
 ```go
 package main
@@ -66,8 +83,6 @@ func main() {
 	fmt.Printf("hash=%016x steps=%d\n", h.Sum(), s.Steps())
 }
 ```
-
-A packaged form of this loop lives under `examples/kv`. Same seed must yield the same hash and `Calls`.
 
 ## Stay out (v1)
 
