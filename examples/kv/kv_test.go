@@ -49,7 +49,7 @@ func TestDifferentSeedsDiverge(t *testing.T) {
 
 // TestCampaign is the DST loop: many seeds, each replayed once for hash parity.
 func TestCampaign(t *testing.T) {
-	const seeds = 100
+	const seeds = 10000
 	seen := map[uint64]uint64{} // hash → first seed
 	for seed := uint64(1); seed <= seeds; seed++ {
 		a, err := kv.Run(seed)
