@@ -53,10 +53,20 @@ type CancelTimer struct {
 	ID uint64
 }
 
-// Crash marks the issuing process crashed. Deliveries to it are ignored until
-// Restart (or Spawn) clears the crash. Pending timers still fire; Step is a no-op
-// while crashed. Crash does not remove the process from the runner.
-type Crash struct{}
+// Crash marks a process crashed: Who, or the issuing process when Who is empty.
+// Deliveries to it are ignored until Restart (or Spawn) clears the crash. Pending
+// timers still fire; Step is a no-op while crashed. Crash does not remove the
+// process from the runner. Cause is free text for traces and for a production
+// runner (it reports why the process stopped).
+type Crash struct {
+	Who   ProcessID
+	Cause string
+}
+
+// Exit ends the issuing process on purpose (a graceful shutdown). The runner
+// treats it like Crash, and Exited reports it, so a supervisor can tell a
+// shutdown from a failure and not restart the process.
+type Exit struct{}
 
 // Restart clears Crash for Who. If Boot is non-nil, it is delivered to Who at
 // delay 0 after the clear. Any process may return Restart; Who need not be the issuer.

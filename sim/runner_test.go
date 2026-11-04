@@ -241,3 +241,31 @@ func (p *fnProc) StateHash() uint64 { return 0 }
 func (p *fnProc) Step(cx sim.Context, inbox any) []any {
 	return p.step(cx, inbox)
 }
+
+func TestCrashWhoAndExit(t *testing.T) {
+	steps := map[sim.ProcessID]int{}
+	mk := func(id sim.ProcessID, out ...any) *fnProc {
+		return &fnProc{id: id, step: func(_ sim.Context, _ any) []any { steps[id]++; return out }}
+	}
+	r := sim.New(sim.Config{Seed: 1})
+	r.Spawn(mk("victim"))
+	r.Spawn(mk("killer", sim.Crash{Who: "victim", Cause: "test"}))
+	r.Spawn(mk("quitter", sim.Exit{}))
+	r.Inject("killer", 0, "go")
+	r.Inject("quitter", 0, "go")
+	r.Inject("victim", 10, "late")
+	r.Inject("quitter", 10, "late")
+	if _, err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if steps["victim"] != 0 || steps["quitter"] != 1 {
+		t.Fatalf("steps = %v", steps)
+	}
+	if !r.Crashed("victim") || r.Exited("victim") || !r.Exited("quitter") {
+		t.Fatal("victim must be crashed, quitter must have exited")
+	}
+	r.Spawn(mk("quitter"))
+	if r.Exited("quitter") || r.Crashed("quitter") {
+		t.Fatal("Spawn must clear exit")
+	}
+}

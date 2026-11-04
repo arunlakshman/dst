@@ -26,6 +26,7 @@ type Runner struct {
 	engines  []eng.Engine
 	procs    map[ProcessID]Process
 	crashed  map[ProcessID]bool
+	exited   map[ProcessID]bool
 	timers   map[timerKey]uint64
 	failures []Failure
 	steps    int
@@ -48,6 +49,7 @@ func New(cfg Config) *Runner {
 		rand:    rng.New(cfg.Seed),
 		procs:   map[ProcessID]Process{},
 		crashed: map[ProcessID]bool{},
+		exited:  map[ProcessID]bool{},
 		timers:  map[timerKey]uint64{},
 		hash:    trace.New(),
 	}
@@ -69,7 +71,14 @@ func (r *Runner) Spawn(p Process) {
 	id := p.ID()
 	r.procs[id] = p
 	delete(r.crashed, id)
+	delete(r.exited, id)
 }
+
+// Exited reports that id ended with Exit and has not been restarted.
+func (r *Runner) Exited(id ProcessID) bool { return r.exited[id] }
+
+// Crashed reports that id is crashed or exited.
+func (r *Runner) Crashed(id ProcessID) bool { return r.crashed[id] }
 
 // Inject schedules an inbox value for process to after delay.
 func (r *Runner) Inject(to ProcessID, after sched.TimeNs, inbox any) {
@@ -139,10 +148,19 @@ func (r *Runner) route(from ProcessID, v any) {
 		r.cancelTimer(from, a.ID)
 		return
 	case Crash:
+		who := a.Who
+		if who == "" {
+			who = from
+		}
+		r.crashed[who] = true
+		return
+	case Exit:
 		r.crashed[from] = true
+		r.exited[from] = true
 		return
 	case Restart:
 		delete(r.crashed, a.Who)
+		delete(r.exited, a.Who)
 		if a.Boot != nil {
 			r.deliver(a.Who, 0, a.Boot)
 		}
