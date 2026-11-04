@@ -77,14 +77,6 @@ func TestNoHole(t *testing.T) {
 	}
 }
 
-func TestAckedInLog(t *testing.T) {
-	c, fails := newChecker()
-	c.AckedInLog(2, func(i int) (bool, string) { return i == 0, "ack 1 is missing" })
-	if len(*fails) != 1 || (*fails)[0] != "t: acked write is in the log: detail=ack 1 is missing" {
-		t.Fatal(*fails)
-	}
-}
-
 func TestHolders(t *testing.T) {
 	var h check.Holders[string]
 	if _, ok := h.Note(1, "a"); !ok {

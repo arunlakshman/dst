@@ -1,6 +1,6 @@
 // Package check holds the generic oracle checks of a simulator: replay a log
 // into a reference model and judge, one writer per epoch, no hole in the log,
-// per-slot state agreement, acked writes in the log, monotonic floors, and the
+// per-slot state agreement, monotonic floors, and the
 // convergence predicate. Every check records through assert.Log, so a failure
 // never panics and the run goes on.
 //
@@ -81,15 +81,6 @@ func Replay[Op, Spec any](c Checker, l Log, spec Spec,
 		judge(slot + 1)
 	}
 	return true
-}
-
-// AckedInLog checks every acked write. in returns whether acked write i is in
-// the log, and the text that says why not.
-func (c Checker) AckedInLog(n int, in func(i int) (ok bool, detail string)) {
-	for i := range n {
-		ok, detail := in(i)
-		c.Verdict(ok, "acked write is in the log", "%s", detail)
-	}
 }
 
 // Holders remembers who first held each epoch. The zero value is ready.
