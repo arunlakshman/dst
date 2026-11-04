@@ -1,8 +1,11 @@
-package clock
+// Package syncclock is a goroutine-safe virtual clock for tests of concurrent
+// code. It is not in the determinism gate; package clock is.
+package syncclock
 
 import (
 	"sync"
 
+	"github.com/arunlakshman/dst/clock"
 	"github.com/arunlakshman/dst/rng"
 	"github.com/arunlakshman/dst/sched"
 )
@@ -14,18 +17,18 @@ import (
 //
 // Do not use Sync inside a deterministic simulator run: its callers race, so
 // the order in which timers are queued is not reproducible. Inside a run use
-// Clock over the run's own sched.Scheduler on one goroutine.
+// clock.Clock over the run's own sched.Scheduler on one goroutine.
 type Sync struct {
 	mu      sync.Mutex
 	s       *sched.Scheduler
-	inner   *Clock
+	inner   *clock.Clock
 	pending int
 }
 
 // SyncTimer is a one-shot timer started by Sync.AfterFunc.
 type SyncTimer struct {
 	c     *Sync
-	inner *Timer
+	inner *clock.Timer
 }
 
 // NewSync returns a Sync whose Mono starts at monoStart and whose Wall reads
@@ -34,7 +37,7 @@ type SyncTimer struct {
 func NewSync(wall, monoStart sched.TimeNs) *Sync {
 	s := sched.New(rng.New(1))
 	s.Jump(monoStart)
-	return &Sync{s: s, inner: New(s, wall-monoStart)}
+	return &Sync{s: s, inner: clock.New(s, wall-monoStart)}
 }
 
 // Mono is the virtual monotonic time.

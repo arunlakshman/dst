@@ -32,7 +32,7 @@ func AssertCampaign(t testing.TB, got, want map[uint64]uint64) {
 	for seed, exp := range want {
 		h, ok := got[seed]
 		if !ok {
-			missing = append(missing, fmt.Sprintf("%d", seed))
+			missing = append(missing, strconv.FormatUint(seed, 10))
 			continue
 		}
 		if h != exp {
@@ -41,7 +41,7 @@ func AssertCampaign(t testing.TB, got, want map[uint64]uint64) {
 	}
 	for seed := range got {
 		if _, ok := want[seed]; !ok {
-			extra = append(extra, fmt.Sprintf("%d", seed))
+			extra = append(extra, strconv.FormatUint(seed, 10))
 		}
 	}
 	slices.Sort(missing)
@@ -65,11 +65,11 @@ func AssertCampaign(t testing.TB, got, want map[uint64]uint64) {
 // Load reads a golden file of lines "seed hash" (decimal seed, hex or decimal hash).
 // Blank lines and lines starting with # are ignored.
 func Load(path string) (map[uint64]uint64, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: path is the caller's golden file by design
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	out := map[uint64]uint64{}
 	sc := bufio.NewScanner(f)
@@ -109,5 +109,5 @@ func Save(path string, got map[uint64]uint64) error {
 	for _, seed := range seeds {
 		fmt.Fprintf(&b, "%d %#x\n", seed, got[seed])
 	}
-	return os.WriteFile(path, []byte(b.String()), 0o644)
+	return os.WriteFile(path, []byte(b.String()), 0o600)
 }

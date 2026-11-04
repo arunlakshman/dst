@@ -1,3 +1,4 @@
+// Package trace folds run state into a 64-bit FNV-1a fingerprint.
 package trace
 
 import "math/bits"

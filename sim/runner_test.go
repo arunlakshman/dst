@@ -20,7 +20,8 @@ func TestSameSeedSameHash(t *testing.T) {
 		}
 		return res.Hash
 	}
-	if run(7) != run(7) {
+	first, second := run(7), run(7)
+	if first != second {
 		t.Fatal("hash drift")
 	}
 }

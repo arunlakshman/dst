@@ -76,23 +76,23 @@ func (s Step[Op, Obs]) CheckAllowFailed(op Op, failed bool) error {
 		return fmt.Errorf("model: %w", merr)
 	}
 	if serr != nil {
-		if failed {
-			if s.Invariant != nil {
-				if err := s.Invariant(); err != nil {
-					return fmt.Errorf("invariant: %w", err)
-				}
-			}
-			return nil
+		if !failed {
+			return fmt.Errorf("subject: %w", serr)
 		}
-		return fmt.Errorf("subject: %w", serr)
+		return s.checkInvariant()
 	}
 	if err := s.Equal(want, got); err != nil {
 		return fmt.Errorf("equal: %w", err)
 	}
-	if s.Invariant != nil {
-		if err := s.Invariant(); err != nil {
-			return fmt.Errorf("invariant: %w", err)
-		}
+	return s.checkInvariant()
+}
+
+func (s Step[Op, Obs]) checkInvariant() error {
+	if s.Invariant == nil {
+		return nil
+	}
+	if err := s.Invariant(); err != nil {
+		return fmt.Errorf("invariant: %w", err)
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ func TestQuietSilencesFaultOnly(t *testing.T) {
 func TestMaybeLatchesPerSite(t *testing.T) {
 	// First call draws Chance(0.5) to latch, then Chance(0.05) only if active.
 	// Find a seed where site A activates (2 draws), then confirm a second call draws once.
-	for seed := uint64(0); seed < 10_000; seed++ {
+	for seed := range uint64(10_000) {
 		r := rng.New(seed)
 		inj := fault.New(r)
 		c0 := r.Calls()
@@ -67,7 +67,7 @@ func TestMaybePIgnoresQuiet(t *testing.T) {
 }
 
 func TestMaybePLatchesPerSite(t *testing.T) {
-	for seed := uint64(0); seed < 10_000; seed++ {
+	for seed := range uint64(10_000) {
 		r := rng.New(seed)
 		inj := fault.New(r)
 		c0 := r.Calls()

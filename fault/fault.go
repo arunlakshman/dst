@@ -1,3 +1,4 @@
+// Package fault is cooperative fault injection drawn from one rng stream.
 package fault
 
 import "github.com/arunlakshman/dst/rng"

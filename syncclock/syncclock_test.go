@@ -1,16 +1,16 @@
-package clock_test
+package syncclock_test
 
 import (
 	"slices"
 	"sync"
 	"testing"
 
-	"github.com/arunlakshman/dst/clock"
 	"github.com/arunlakshman/dst/sched"
+	"github.com/arunlakshman/dst/syncclock"
 )
 
 func TestSyncTimersFireInOrderAndChain(t *testing.T) {
-	c := clock.NewSync(1_000_000, 10)
+	c := syncclock.NewSync(1_000_000, 10)
 	var order []string
 	c.AfterFunc(30, func() { order = append(order, "c") })
 	c.AfterFunc(10, func() {
@@ -34,7 +34,7 @@ func TestSyncTimersFireInOrderAndChain(t *testing.T) {
 }
 
 func TestSyncStop(t *testing.T) {
-	c := clock.NewSync(0, 0)
+	c := syncclock.NewSync(0, 0)
 	tm := c.AfterFunc(5, func() { t.Error("stopped timer fired") })
 	if !tm.Stop() || tm.Stop() || c.Pending() != 0 {
 		t.Fatal("Stop must report true once and drop the pending count")
@@ -47,7 +47,7 @@ func TestSyncStop(t *testing.T) {
 }
 
 func TestSyncSafeFromManyGoroutines(t *testing.T) {
-	c := clock.NewSync(0, 1)
+	c := syncclock.NewSync(0, 1)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	n := 0

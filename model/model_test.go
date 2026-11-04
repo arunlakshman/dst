@@ -212,17 +212,20 @@ type captureTB struct {
 	failed bool
 }
 
-func (c *captureTB) Helper()                      {}
-func (c *captureTB) Name() string                 { return c.name }
+func (c *captureTB) Helper()      {}
+func (c *captureTB) Name() string { return c.name }
 func (c *captureTB) Logf(format string, args ...any) {
 	fmt.Fprintf(&c.buf, format, args...)
 }
-func (c *captureTB) Log(args ...any) { fmt.Fprint(&c.buf, args...) }
+func (c *captureTB) Log(args ...any)      { fmt.Fprint(&c.buf, args...) }
 func (c *captureTB) Skipf(string, ...any) { panic("skip") }
 func (c *captureTB) Skip(...any)          { panic("skip") }
 func (c *captureTB) SkipNow()             { panic("skip") }
-func (c *captureTB) Errorf(format string, args ...any) { c.failed = true; fmt.Fprintf(&c.buf, format, args...) }
-func (c *captureTB) Error(args ...any)                 { c.failed = true; fmt.Fprint(&c.buf, args...) }
+func (c *captureTB) Errorf(format string, args ...any) {
+	c.failed = true
+	fmt.Fprintf(&c.buf, format, args...)
+}
+func (c *captureTB) Error(args ...any) { c.failed = true; fmt.Fprint(&c.buf, args...) }
 func (c *captureTB) Fatalf(format string, args ...any) {
 	c.failed = true
 	fmt.Fprintf(&c.buf, format, args...)

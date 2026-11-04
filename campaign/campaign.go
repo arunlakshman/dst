@@ -73,7 +73,7 @@ func Missing(cov map[string]Coverage, expected []string) []string {
 	return out
 }
 
-// Run executes seeds first, first+1, … for seeds count, using workers goroutines.
+// Run executes seeds first, first+1, ... for seeds count, using workers goroutines.
 // When workers <= 0, GOMAXPROCS is used. Each run is independent; results are
 // folded in seed order. Coverage maps are merged by summing Checks and Passes.
 func Run(first uint64, seeds int, workers int, run func(seed uint64) Result) Summary {

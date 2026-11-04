@@ -123,9 +123,9 @@ func (n *node) StateHash() uint64 { return 0 }
 func (n *node) Step(_ sim.Context, inbox any) []any {
 	switch e := inbox.(type) {
 	case putRequest:
-		return []any{putAction{Key: e.Key, Value: e.Value}}
+		return []any{putAction(e)}
 	case getRequest:
-		return []any{getAction{Key: e.Key, Want: e.Want, ReplyTo: e.ReplyTo}}
+		return []any{getAction(e)}
 	default:
 		return nil
 	}

@@ -1,3 +1,5 @@
+// Package sched is the virtual monotonic clock and the (at, tie, seq) event
+// heap of one run.
 package sched
 
 import "github.com/arunlakshman/dst/rng"
@@ -88,7 +90,7 @@ func (s *Scheduler) Steps() int { return s.steps }
 func (s *Scheduler) Len() int { return len(s.queue) }
 
 // Peek reports the soonest event time. ok is false when the queue is empty.
-func (s *Scheduler) Peek() (at TimeNs, ok bool) {
+func (s *Scheduler) Peek() (TimeNs, bool) {
 	if len(s.queue) == 0 {
 		return 0, false
 	}
@@ -142,7 +144,7 @@ func (s *Scheduler) Next() bool {
 // Take pops the soonest event, sets Mono to max(Mono, at), and returns its
 // callback without running it. ok is false when the queue is empty. Callers
 // that hold a lock around the heap use Take so the callback can run unlocked.
-func (s *Scheduler) Take() (run func(), ok bool) {
+func (s *Scheduler) Take() (func(), bool) {
 	if len(s.queue) == 0 {
 		return nil, false
 	}

@@ -1,3 +1,5 @@
+// Package assert records properties (Always, Sometimes, Reachable) without
+// panicking, so a run keeps going after a failure.
 package assert
 
 import (
@@ -11,6 +13,7 @@ type Property string
 // Kind classifies how a property was recorded.
 type Kind string
 
+// The kinds of property a Log records.
 const (
 	KindAlways    Kind = "always"
 	KindSometimes Kind = "sometimes"
@@ -105,6 +108,7 @@ func (l *Log) Unreachable(p Property, details ...Pair) {
 // Coverage returns a copy of the per-property stats.
 func (l *Log) Coverage() map[string]Coverage {
 	out := make(map[string]Coverage, len(l.stats))
+	//determinismcheck:ok copies into another map; iteration order does not escape
 	for p, s := range l.stats {
 		out[string(p)] = *s
 	}

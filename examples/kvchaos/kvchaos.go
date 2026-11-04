@@ -135,9 +135,9 @@ func (n *node) StateHash() uint64 { return 0 }
 func (n *node) Step(_ sim.Context, inbox any) []any {
 	switch e := inbox.(type) {
 	case putRequest:
-		return []any{putAction{Key: e.Key, Value: e.Value}}
+		return []any{putAction(e)}
 	case getRequest:
-		return []any{getAction{Key: e.Key, Want: e.Want, ReplyTo: e.ReplyTo}}
+		return []any{getAction(e)}
 	case killReq:
 		return []any{sim.Crash{}}
 	case bootMsg:
@@ -167,7 +167,7 @@ func (s *supervisor) StateHash() uint64 {
 func (s *supervisor) Step(cx sim.Context, inbox any) []any {
 	switch inbox.(type) {
 	case begin:
-		// Latch ~half of seeds; fire always when active → Crash+Restart on those seeds.
+		// Latch ~half of seeds; fire always when active -> Crash+Restart on those seeds.
 		if cx.Faults().MaybeP("node-crash", 1.0) {
 			s.planned = true
 			killAt := sched.TimeNs(cx.Rand().Between(5, 40) * 1_000_000)

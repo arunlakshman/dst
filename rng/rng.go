@@ -1,3 +1,4 @@
+// Package rng is the single seeded random stream (SplitMix64) of one run.
 package rng
 
 import "math/bits"

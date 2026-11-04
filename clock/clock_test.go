@@ -1,6 +1,7 @@
 package clock_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/arunlakshman/dst/clock"
@@ -93,12 +94,5 @@ func TestNestedTimerFiresInSameAdvance(t *testing.T) {
 }
 
 func join(ss []string) string {
-	out := ""
-	for i, s := range ss {
-		if i > 0 {
-			out += ","
-		}
-		out += s
-	}
-	return out
+	return strings.Join(ss, ",")
 }
