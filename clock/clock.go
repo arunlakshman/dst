@@ -48,7 +48,7 @@ func (tm *Timer) Stop() bool {
 // Delay semantics match sched.Scheduler.After (negative delay is 0).
 func (c *Clock) AfterFunc(d sched.TimeNs, f func()) *Timer {
 	tm := new(Timer)
-	c.s.After(d, "clock", func() {
+	c.s.AfterFIFO(d, "clock", func() {
 		if tm.stopped {
 			return
 		}

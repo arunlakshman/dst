@@ -104,14 +104,25 @@ func (s *Scheduler) Jump(t TimeNs) {
 }
 
 // After queues run at Mono+delay (delay<0 counts as 0). label is for traces only.
+// Same-time events order by a seeded tie, then by enqueue seq.
 func (s *Scheduler) After(delay TimeNs, label string, run func()) {
+	s.after(delay, s.rand.Uint64(), label, run)
+}
+
+// AfterFIFO queues like After, but same-time events keep enqueue order (tie=0).
+// Virtual clocks use this so Advance matches a simple timer list.
+func (s *Scheduler) AfterFIFO(delay TimeNs, label string, run func()) {
+	s.after(delay, 0, label, run)
+}
+
+func (s *Scheduler) after(delay TimeNs, tie uint64, label string, run func()) {
 	if delay < 0 {
 		delay = 0
 	}
 	s.seq++
 	s.queue.push(&event{
 		at:    s.now + delay,
-		tie:   s.rand.Uint64(),
+		tie:   tie,
 		seq:   s.seq,
 		label: label,
 		run:   run,
