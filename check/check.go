@@ -97,7 +97,7 @@ type Holders[W comparable] struct{ first map[uint64]W }
 
 // Note records that who holds epoch. It returns the first holder, and ok=false
 // when that is somebody else (two writers in one epoch).
-func (h *Holders[W]) Note(epoch uint64, who W) (first W, ok bool) {
+func (h *Holders[W]) Note(epoch uint64, who W) (W, bool) {
 	if h.first == nil {
 		h.first = map[uint64]W{}
 	}
@@ -121,7 +121,7 @@ type seen[N any] struct {
 
 // Note records the state hash of who after `applied` slots. It returns the
 // first hash and who showed it, and ok=false if that hash differs.
-func (p *Prefixes[N]) Note(applied Slot, hash uint64, who N) (firstHash uint64, first N, ok bool) {
+func (p *Prefixes[N]) Note(applied Slot, hash uint64, who N) (uint64, N, bool) {
 	if p.first == nil {
 		p.first = map[Slot]seen[N]{}
 	}
