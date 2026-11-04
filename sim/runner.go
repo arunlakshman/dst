@@ -141,6 +141,12 @@ func (r *Runner) route(from ProcessID, v any) {
 	case Crash:
 		r.crashed[from] = true
 		return
+	case Restart:
+		delete(r.crashed, a.Who)
+		if a.Boot != nil {
+			r.deliver(a.Who, 0, a.Boot)
+		}
+		return
 	}
 
 	ecx := engContext{r: r, from: eng.ActorID(from), engine: nil}

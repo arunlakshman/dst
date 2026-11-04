@@ -8,6 +8,15 @@ import (
 // Property is a stable assertion id. Do not interpolate dynamic values into it.
 type Property string
 
+// Kind classifies how a property was recorded.
+type Kind string
+
+const (
+	KindAlways    Kind = "always"
+	KindSometimes Kind = "sometimes"
+	KindReachable Kind = "reachable"
+)
+
 // Pair is one ordered context field for a failure detail.
 type Pair struct {
 	Key   string
@@ -16,16 +25,10 @@ type Pair struct {
 
 // Coverage counts evaluations of one property.
 type Coverage struct {
-	Kind   string // "always" | "sometimes" | "reachable"
+	Kind   Kind
 	Checks uint64
 	Passes uint64
 }
-
-const (
-	kindAlways    = "always"
-	kindSometimes = "sometimes"
-	kindReachable = "reachable"
-)
 
 // Log records and continues. A false Always calls onFail and the run keeps going.
 // Invariant: assertions never panic.
@@ -45,7 +48,7 @@ func (l *Log) fail(property, detail string) {
 	}
 }
 
-func (l *Log) stat(p Property, kind string) *Coverage {
+func (l *Log) stat(p Property, kind Kind) *Coverage {
 	s := l.stats[p]
 	if s == nil {
 		s = &Coverage{Kind: kind}
@@ -64,7 +67,7 @@ func detailText(details []Pair) string {
 
 // Always records cond under p. A false cond calls onFail.
 func (l *Log) Always(cond bool, p Property, details ...Pair) {
-	s := l.stat(p, kindAlways)
+	s := l.stat(p, KindAlways)
 	s.Checks++
 	if cond {
 		s.Passes++
@@ -80,7 +83,7 @@ func (l *Log) AlwaysOrUnreachable(cond bool, p Property, details ...Pair) {
 
 // Sometimes records whether cond held without failing the run.
 func (l *Log) Sometimes(cond bool, p Property) {
-	s := l.stat(p, kindSometimes)
+	s := l.stat(p, KindSometimes)
 	s.Checks++
 	if cond {
 		s.Passes++
@@ -89,7 +92,7 @@ func (l *Log) Sometimes(cond bool, p Property) {
 
 // Reachable records that p was reached.
 func (l *Log) Reachable(p Property) {
-	s := l.stat(p, kindReachable)
+	s := l.stat(p, KindReachable)
 	s.Checks++
 	s.Passes++
 }

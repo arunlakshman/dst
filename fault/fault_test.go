@@ -65,3 +65,22 @@ func TestMaybePIgnoresQuiet(t *testing.T) {
 		t.Fatal("MaybeP must draw while quiet")
 	}
 }
+
+func TestMaybePLatchesPerSite(t *testing.T) {
+	for seed := uint64(0); seed < 10_000; seed++ {
+		r := rng.New(seed)
+		inj := fault.New(r)
+		c0 := r.Calls()
+		_ = inj.MaybeP("A", 0.05)
+		if r.Calls()-c0 != 2 {
+			continue
+		}
+		c1 := r.Calls()
+		_ = inj.MaybeP("A", 0.05)
+		if r.Calls()-c1 != 1 {
+			t.Fatalf("seed %d: second MaybeP drew %d, want 1 (latch)", seed, r.Calls()-c1)
+		}
+		return
+	}
+	t.Fatal("no seed found for MaybeP latch check")
+}

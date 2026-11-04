@@ -15,9 +15,10 @@ type ProcessID = eng.ActorID
 // Process is one actor the runner steps.
 //
 // Step takes one inbox value and returns zero or more outbound values.
-// Outbound values are either a control struct in this package (Send, SetTimer, …)
-// or a domain value an eng.Engine understands. There is no separate Event/Action
-// type: those names collide with "simulated action" in everyday English.
+// Outbound values are either a control struct in this package (Send, SetTimer,
+// CancelTimer, Crash, Restart) or a domain value an eng.Engine understands.
+// There is no separate Event/Action type: those names collide with "simulated
+// action" in everyday English.
 type Process interface {
 	ID() ProcessID
 	StateHash() uint64
@@ -50,8 +51,17 @@ type CancelTimer struct {
 	ID uint64
 }
 
-// Crash drops the issuing process. Deliveries to it are ignored until Spawn again.
+// Crash marks the issuing process crashed. Deliveries to it are ignored until
+// Restart (or Spawn) clears the crash. Pending timers still fire; Step is a no-op
+// while crashed. Crash does not remove the process from the runner.
 type Crash struct{}
+
+// Restart clears Crash for Who. If Boot is non-nil, it is delivered to Who at
+// delay 0 after the clear. Any process may return Restart; Who need not be the issuer.
+type Restart struct {
+	Who  ProcessID
+	Boot any
+}
 
 // Config configures one Runner.
 type Config struct {
