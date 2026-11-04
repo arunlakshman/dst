@@ -28,6 +28,8 @@ type Process interface {
 // Context is lent to Process.Step.
 type Context interface {
 	Now() sched.TimeNs
+	// Wall is the UTC clock in ns: Config.WallStart plus Now in a simulation.
+	Wall() sched.TimeNs
 	Rand() *rng.Rand
 	Faults() *fault.Injector
 	Assert() *assert.Log
@@ -65,9 +67,11 @@ type Restart struct {
 
 // Config configures one Runner.
 type Config struct {
-	Seed    uint64
-	Steps   int // stop after this many Process.Step calls (0 = drain until empty / MaxPops)
-	MaxPops int // hard cap on scheduler pops; default 1_000_000
+	Seed uint64
+	// WallStart is the UTC time (ns) at virtual time zero. Context.Wall is WallStart + Now.
+	WallStart sched.TimeNs
+	Steps     int // stop after this many Process.Step calls (0 = drain until empty / MaxPops)
+	MaxPops   int // hard cap on scheduler pops; default 1_000_000
 }
 
 // Failure is one assert onFail record collected during Run.

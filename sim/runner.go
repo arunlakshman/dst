@@ -188,6 +188,7 @@ func (r *Runner) cancelTimer(pid ProcessID, id uint64) {
 type procContext struct{ r *Runner }
 
 func (c procContext) Now() sched.TimeNs       { return c.r.sched.Mono() }
+func (c procContext) Wall() sched.TimeNs      { return c.r.cfg.WallStart + c.r.sched.Mono() }
 func (c procContext) Rand() *rng.Rand         { return c.r.rand }
 func (c procContext) Faults() *fault.Injector { return c.r.faults }
 func (c procContext) Assert() *assert.Log     { return c.r.asserts }

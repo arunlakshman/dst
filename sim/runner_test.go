@@ -212,3 +212,32 @@ func (p *inboxProc) Step(_ sim.Context, inbox any) []any {
 	}
 	return nil
 }
+
+func TestWallIsWallStartPlusNow(t *testing.T) {
+	var got []sched.TimeNs
+	p := &fnProc{id: "p", step: func(cx sim.Context, inbox any) []any {
+		got = append(got, cx.Now(), cx.Wall())
+		return nil
+	}}
+	r := sim.New(sim.Config{Seed: 1, WallStart: 1_000_000})
+	r.Spawn(p)
+	r.Inject("p", 5, "a")
+	if _, err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0] != 5 || got[1] != 1_000_005 {
+		t.Fatalf("now/wall = %v", got)
+	}
+}
+
+// fnProc is a Process whose Step is a function.
+type fnProc struct {
+	id   sim.ProcessID
+	step func(cx sim.Context, inbox any) []any
+}
+
+func (p *fnProc) ID() sim.ProcessID { return p.id }
+func (p *fnProc) StateHash() uint64 { return 0 }
+func (p *fnProc) Step(cx sim.Context, inbox any) []any {
+	return p.step(cx, inbox)
+}
