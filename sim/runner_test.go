@@ -377,3 +377,37 @@ func TestRunUntilStopsOnPredicate(t *testing.T) {
 		t.Fatalf("drained=%v n=%d", drained, n)
 	}
 }
+
+// A timer that was replaced must never fire, even after the new timer has fired
+// and a third one was armed with the same ID.
+func TestReplacedTimerNeverFiresAfterIDIsReused(t *testing.T) {
+	var seen []string
+	p := &fnProc{id: "p", step: func(_ sim.Context, inbox any) []any {
+		seen = append(seen, inbox.(string))
+		switch inbox {
+		case "boot":
+			return []any{
+				sim.SetTimer{ID: 1, After: 100, Body: "A"}, // replaced at once, must not fire
+				sim.SetTimer{ID: 1, After: 10, Body: "B"},
+			}
+		case "B":
+			return []any{sim.SetTimer{ID: 1, After: 500, Body: "C"}} // reuses the ID after B fired
+		}
+		return nil
+	}}
+	r := sim.New(sim.Config{Seed: 1})
+	r.Spawn(p)
+	r.Inject("p", 0, "boot")
+	if _, err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"boot", "B", "C"}
+	if len(seen) != len(want) {
+		t.Fatalf("seen = %v, want %v", seen, want)
+	}
+	for i := range want {
+		if seen[i] != want[i] {
+			t.Fatalf("seen = %v, want %v", seen, want)
+		}
+	}
+}

@@ -28,7 +28,7 @@ type Runner struct {
 	crashed  map[ProcessID]bool
 	exited   map[ProcessID]bool
 	inc      map[ProcessID]uint64 // incarnation counter of each process
-	timers   map[timerKey]uint64
+	timers   map[timerKey]uint64  // latest generation per timer; never reset, so a replaced timer can not come back
 	failures []Failure
 	steps    int
 	pops     int
@@ -251,7 +251,6 @@ func (r *Runner) setTimer(pid ProcessID, t SetTimer) {
 		if r.timers[key] != gen || r.inc[pid] != inc {
 			return
 		}
-		delete(r.timers, key)
 		r.step(pid, body)
 	})
 }
