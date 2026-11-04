@@ -1,14 +1,21 @@
 package kv_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/arunlakshman/dst/examples/kv"
 )
 
 func TestDeterministic(t *testing.T) {
-	a := kv.Run(42)
-	b := kv.Run(42)
+	a, err := kv.Run(42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := kv.Run(42)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if a.Hash != b.Hash {
 		t.Fatalf("hash %016x != %016x", a.Hash, b.Hash)
 	}
@@ -21,12 +28,70 @@ func TestDeterministic(t *testing.T) {
 	if a.Steps == 0 {
 		t.Fatal("no steps")
 	}
+	if len(a.Failures) != 0 {
+		t.Fatalf("failures: %+v", a.Failures)
+	}
 }
 
 func TestDifferentSeedsDiverge(t *testing.T) {
-	a := kv.Run(1)
-	b := kv.Run(2)
+	a, err := kv.Run(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := kv.Run(2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if a.Hash == b.Hash && a.Calls == b.Calls {
 		t.Fatal("distinct seeds produced identical Result")
 	}
+}
+
+// TestCampaign is the DST loop: many seeds, each replayed once for hash parity.
+func TestCampaign(t *testing.T) {
+	const seeds = 100
+	seen := map[uint64]uint64{} // hash → first seed
+	for seed := uint64(1); seed <= seeds; seed++ {
+		a, err := kv.Run(seed)
+		if err != nil {
+			t.Fatalf("seed %d: %v", seed, err)
+		}
+		if len(a.Failures) != 0 {
+			t.Fatalf("seed %d failures: %+v", seed, a.Failures)
+		}
+		if a.Steps == 0 {
+			t.Fatalf("seed %d: no steps", seed)
+		}
+		b, err := kv.Run(seed)
+		if err != nil {
+			t.Fatalf("seed %d replay: %v", seed, err)
+		}
+		if a.Hash != b.Hash || a.Calls != b.Calls || a.Steps != b.Steps {
+			t.Fatalf("seed %d not deterministic: %+v vs %+v", seed, a, b)
+		}
+		if prev, ok := seen[a.Hash]; ok {
+			t.Logf("seed %d shares hash with seed %d (ok if workloads collide)", seed, prev)
+		} else {
+			seen[a.Hash] = seed
+		}
+	}
+	if len(seen) < 2 {
+		t.Fatalf("campaign produced fewer than 2 distinct hashes across %d seeds: %d", seeds, len(seen))
+	}
+	t.Logf("campaign: %d seeds, %d distinct hashes", seeds, len(seen))
+}
+
+func ExampleRun() {
+	res, err := kv.Run(42)
+	if err != nil || len(res.Failures) != 0 {
+		fmt.Println("fail")
+		return
+	}
+	if res.Steps == 0 {
+		fmt.Println("fail")
+		return
+	}
+	fmt.Println("ok")
+	// Output:
+	// ok
 }

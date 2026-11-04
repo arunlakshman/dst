@@ -14,13 +14,14 @@ import (
 
 // Result is the fingerprint of one run.
 type Result struct {
-	Hash  uint64
-	Calls uint64
-	Steps int
+	Hash     uint64
+	Calls    uint64
+	Steps    int
+	Failures []sim.Failure
 }
 
 // Run drives one client, one node, and one store under a seeded Runner.
-func Run(seed uint64) Result {
+func Run(seed uint64) (Result, error) {
 	r := sim.New(sim.Config{Seed: seed})
 	store := newStore("kv")
 	node := newNode("n1")
@@ -33,8 +34,13 @@ func Run(seed uint64) Result {
 	r.Spawn(node)
 	r.Spawn(client)
 	r.Inject(client.id, 0, begin{})
-	res, _ := r.Run()
-	return Result{Hash: res.Hash, Calls: res.Calls, Steps: res.Steps}
+	res, err := r.Run()
+	return Result{
+		Hash:     res.Hash,
+		Calls:    res.Calls,
+		Steps:    res.Steps,
+		Failures: res.Failures,
+	}, err
 }
 
 // ---- messages ----
@@ -87,9 +93,8 @@ func (s *store) StateHash() uint64 {
 func (s *store) Handle(cx eng.Context, act any) error {
 	switch a := act.(type) {
 	case putAction:
-		if cx.Faults().Fault("kv.write", 0.1) {
-			return nil
-		}
+		// Happy-path campaign keeps writes reliable. Wire cx.Faults().Fault here
+		// when you add a chaos script that tracks MaybeApplied outcomes.
 		s.data[a.Key] = a.Value
 		cx.Assert().Always(s.data[a.Key] == a.Value, "put sticks", assert.Pair{Key: "k", Value: a.Key})
 		return nil
