@@ -90,17 +90,38 @@ func (r *Runner) Inject(to ProcessID, after sched.TimeNs, inbox any) {
 	r.deliver(to, after, inbox)
 }
 
-// Run drains the scheduler under cfg limits and returns the run fingerprint.
-func (r *Runner) Run() (Result, error) {
-	for r.sched.Len() > 0 && r.pops < r.cfg.MaxPops {
-		if r.cfg.Steps > 0 && r.steps >= r.cfg.Steps {
-			break
-		}
-		if !r.sched.Next() {
-			break
+// Sched gives a product simulator the run's own scheduler, so its clients and
+// nemesis share one clock and one seed with the processes.
+func (r *Runner) Sched() *sched.Scheduler { return r.sched }
+
+// Rand returns the run's random stream.
+func (r *Runner) Rand() *rng.Rand { return r.rand }
+
+// Faults returns the run's fault injector.
+func (r *Runner) Faults() *fault.Injector { return r.faults }
+
+// Assert returns the run's assertion log.
+func (r *Runner) Assert() *assert.Log { return r.asserts }
+
+// Steps is the number of Process.Step calls so far.
+func (r *Runner) Steps() int { return r.steps }
+
+// RunUntil takes events until stop returns true (checked before each event),
+// the queue is empty, or MaxPops is reached. It reports true when it ended
+// because nothing is left to run or the cap was hit, and false when stop said so.
+func (r *Runner) RunUntil(stop func() bool) bool {
+	for !stop() {
+		if r.sched.Len() == 0 || r.pops >= r.cfg.MaxPops || !r.sched.Next() {
+			return true
 		}
 		r.pops++
 	}
+	return false
+}
+
+// Run drains the scheduler under cfg limits and returns the run fingerprint.
+func (r *Runner) Run() (Result, error) {
+	r.RunUntil(func() bool { return r.cfg.Steps > 0 && r.steps >= r.cfg.Steps })
 	for _, e := range r.engines {
 		r.hash.Uint64(e.StateHash())
 	}
@@ -148,6 +169,9 @@ func (r *Runner) step(to ProcessID, inbox any) {
 	cx := procContext{r: r}
 	out := p.Step(cx, inbox)
 	r.steps++
+	if r.cfg.OnStep != nil {
+		r.cfg.OnStep(StepInfo{Who: to, At: r.sched.Mono(), Inbox: inbox, Out: out})
+	}
 	r.hash.Int64(int64(r.sched.Mono()))
 	r.hash.String(string(to))
 	r.hash.Uint64(p.StateHash())

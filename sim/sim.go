@@ -89,6 +89,18 @@ type Config struct {
 	WallStart sched.TimeNs
 	Steps     int // stop after this many Process.Step calls (0 = drain until empty / MaxPops)
 	MaxPops   int // hard cap on scheduler pops; default 1_000_000
+	// OnStep, if set, runs after every Process.Step and before the runner acts
+	// on the outbound values. The process has its new state then, so an
+	// observer can check invariants and record a trace. It must not call the Runner.
+	OnStep func(StepInfo)
+}
+
+// StepInfo describes one Process.Step call, for Config.OnStep.
+type StepInfo struct {
+	Who   ProcessID
+	At    sched.TimeNs // virtual time of the step
+	Inbox any
+	Out   []any // what Step returned, before the runner acts on it
 }
 
 // Failure is one assert onFail record collected during Run.

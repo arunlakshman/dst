@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/manifesterio/dst/eng"
@@ -337,5 +338,42 @@ func TestCurrentIncarnationStillGetsItsReplyAndTimer(t *testing.T) {
 	}
 	if len(seen) != 3 || seen[1] != "io-done" || seen[2] != "timer" {
 		t.Fatalf("seen = %v", seen)
+	}
+}
+
+func TestOnStepSeesStateBeforeOutIsRouted(t *testing.T) {
+	var log []string
+	state := 0
+	p := &fnProc{id: "p", step: func(_ sim.Context, inbox any) []any {
+		state++
+		if inbox == "a" {
+			return []any{sim.Send{To: "p", Body: "b"}}
+		}
+		return nil
+	}}
+	r := sim.New(sim.Config{Seed: 1, OnStep: func(s sim.StepInfo) {
+		log = append(log, fmt.Sprintf("%s:%v:%d:%d", s.Who, s.Inbox, len(s.Out), state))
+	}})
+	r.Spawn(p)
+	r.Inject("p", 0, "a")
+	if _, err := r.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if len(log) != 2 || log[0] != "p:a:1:1" || log[1] != "p:b:0:2" {
+		t.Fatalf("log = %v", log)
+	}
+}
+
+func TestRunUntilStopsOnPredicate(t *testing.T) {
+	n := 0
+	p := &fnProc{id: "p", step: func(sim.Context, any) []any {
+		n++
+		return []any{sim.Send{To: "p", Body: "again"}} // never ends by itself
+	}}
+	r := sim.New(sim.Config{Seed: 1})
+	r.Spawn(p)
+	r.Inject("p", 0, "go")
+	if drained := r.RunUntil(func() bool { return r.Steps() >= 5 }); drained || n != 5 {
+		t.Fatalf("drained=%v n=%d", drained, n)
 	}
 }
