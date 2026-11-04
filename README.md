@@ -42,15 +42,31 @@ The runner handles control types first, then tries engines in register order unt
 | `trace` | Running FNV-1a `Hash`, optional `Ring[T]` |
 | `assert` | Always / Sometimes / Reachable / Unreachable with coverage |
 | `fault` | Maybe / MaybeP / Fault with per-site latch and Quiet |
+| `campaign` | Parallel seed runner. Folds per-seed hashes in seed order and merges coverage. |
+| `mutant` | `Require` / `RequireClean` helpers for planted-bug and false-alarm checks |
 
 ## How to run campaigns
 
-A campaign is a seed loop in an ordinary Go test. Same seed must replay to the same `Result.Hash` / `Calls` / `Steps`. Fail the test on `Run` errors (protocol) or non-empty `Failures` (asserts). Cross-seed hash collisions are normal and not signal.
+Use `campaign.Run` for a parallel seed sweep, or keep a plain loop in the test.
+
+```go
+sum := campaign.Run(1, 100, 0, func(seed uint64) campaign.Result {
+    r, err := myScenario.Run(seed) // product code
+    return campaign.Result{Hash: r.Hash, OK: err == nil && len(r.Failures) == 0, Coverage: toCampaign(r.Coverage)}
+})
+if len(sum.Failed) > 0 {
+    t.Fatalf("%d failed; first seed %d: %s", len(sum.Failed), sum.Failed[0].Seed, sum.Failed[0].Reproduce)
+}
+```
+
+`campaign.Run` stamps `Result.Seed`, folds hashes with `trace` in seed order, and merges coverage by summing `Checks`/`Passes`. Same seed must still replay to the same hash. Cross-seed hash collisions are normal and not signal.
+
+For planted bugs, use `mutant.Require` so each bug fails at least once in seeds `1..budget`, and `mutant.RequireClean` so the same budget raises no false alarms.
 
 ```bash
 go test ./examples/kv -run TestCampaign -count=1
 go test ./examples/kvchaos -run TestCampaign -count=1
-go test ./...
+go test ./campaign ./mutant ./...
 ```
 
 ## Stay out
@@ -59,7 +75,7 @@ These stay out of this module on purpose:
 
 - Spec / rapid property engines
 - Closed domain message vocabularies (Kafka, S3, product RPCs)
-- Campaign runners and corpus orchestration
+- Corpus orchestration and product scenario registries
 - Product I/O fakes beyond the tiny KV examples
 - Full network-partition simulators
 
